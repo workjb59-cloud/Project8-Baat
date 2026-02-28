@@ -48,6 +48,22 @@ Desktop.ini
 
 # Logs
 *.log
+boutiqaat_scraper.log
+
+# Cache
+cache/
+.cache/
+*.cache
+
+# Output files
+*.xlsx
+*.xls
+pipeline_results_*.json
+
+# Scraped data
+scraped_data/
+temp/
+downloads/
 logs/
 
 # Temporary files
