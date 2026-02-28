@@ -42,7 +42,7 @@ def test_imports():
 
 
 def test_env_file():
-    """Test that .env file exists and has required variables"""
+    """Test that environment configuration is available"""
     print("\n" + "=" * 80)
     print("TESTING ENVIRONMENT CONFIGURATION")
     print("=" * 80 + "\n")
@@ -50,18 +50,21 @@ def test_env_file():
     from pathlib import Path
     from dotenv import load_dotenv
     
-    env_file = Path('.env')
-    if not env_file.exists():
-        print("❌ .env file not found!")
-        print("\nCreate .env file by copying .env.example:")
-        print("    cp .env.example .env")
-        print("\nThen add your AWS credentials to .env")
-        return False
+    # Check if running in GitHub Actions
+    is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
     
-    print("✓ .env file exists")
-    
-    # Load environment variables
-    load_dotenv()
+    if is_github_actions:
+        print("✓ Running in GitHub Actions environment")
+        print("  Environment variables loaded from GitHub secrets")
+    else:
+        env_file = Path('.env')
+        if env_file.exists():
+            print("✓ .env file exists (local development)")
+        else:
+            print("⚠️  .env file not found (using environment variables)")
+        
+        # Load environment variables
+        load_dotenv()
     
     required_vars = [
         'AWS_ACCESS_KEY_ID',
@@ -90,6 +93,10 @@ def test_env_file():
     
     if not all_good:
         print("\n❌ Some required environment variables are missing!")
+        if not is_github_actions:
+            print("Create a .env file or set environment variables.")
+        else:
+            print("Configure GitHub secrets in: Settings → Secrets and variables → Actions")
         return False
     
     print("\n✓ Environment variables configured")

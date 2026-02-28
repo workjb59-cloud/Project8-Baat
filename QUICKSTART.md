@@ -1,5 +1,43 @@
 # Quick Start Guide
 
+## 🤖 GitHub Actions Setup (Recommended)
+
+For automated daily scraping:
+
+### 1. Configure GitHub Secrets
+
+Go to your repository: `Settings → Secrets and variables → Actions → New repository secret`
+
+Add these 4 secrets:
+- `AWS_ACCESS_KEY_ID` - Your AWS access key
+- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key  
+- `AWS_REGION` - AWS region (e.g., `us-east-1`)
+- `S3_BUCKET_NAME` - S3 bucket name (e.g., `boutiqaat-data`)
+
+### 2. Customize Scraping
+
+Edit `scraping_config.py` to configure:
+- Categories to scrape
+- Brands to scrape
+- Celebrities to scrape
+
+### 3. Run Workflow
+
+**Manual trigger:**
+1. Go to `Actions` tab
+2. Click `Daily Boutiqaat Scraper`
+3. Click `Run workflow`
+
+**Automatic:** Runs daily at 2 AM UTC
+
+📖 [Read the complete GitHub Actions setup guide](GITHUB_ACTIONS_SETUP.md)
+
+---
+
+## 💻 Local Development Setup (Optional)
+
+For local testing only.
+
 ## Prerequisites
 
 1. Python 3.8 or higher
@@ -14,15 +52,16 @@
 pip install -r requirements.txt
 ```
 
-### 2. Configure AWS Credentials
+### 2. Configure AWS Credentials (Local Only)
 
 Create a `.env` file in the project root:
 
 ```bash
-cp .env.example .env
+# Create .env file
+touch .env  # or: New-Item .env on Windows
 ```
 
-Edit `.env` and add your credentials:
+Add your credentials to `.env`:
 
 ```env
 AWS_ACCESS_KEY_ID=your_access_key_here
@@ -30,6 +69,8 @@ AWS_SECRET_ACCESS_KEY=your_secret_key_here
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=boutiqaat-data
 ```
+
+⚠️ **Important:** `.env` is gitignored and should never be committed!
 
 ### 3. Configure What to Scrape
 

@@ -1,14 +1,16 @@
 """
 Configuration settings for Boutiqaat scraper
+Works with both GitHub Actions secrets and local .env file
 """
 import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env if it exists (for local development)
+# In GitHub Actions, variables come from secrets
 load_dotenv()
 
-# S3 Configuration (stored as secrets)
+# S3 Configuration (from GitHub Actions secrets or .env file)
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')

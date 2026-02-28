@@ -16,21 +16,43 @@ def check_environment():
     
     print("Checking environment...")
     
-    # Check if .env exists
-    env_file = Path('.env')
-    if not env_file.exists():
-        print("\n⚠️  WARNING: .env file not found!")
-        print("Please create .env file with your AWS credentials.")
-        print("You can copy .env.example as a template:")
-        print("\n    cp .env.example .env")
-        print("\nThen edit .env and add your AWS credentials.")
+    # Check if running in GitHub Actions
+    is_github_actions = os.getenv('GITHUB_ACTIONS') == 'true'
+    
+    if is_github_actions:
+        print("✓ Running in GitHub Actions")
+        # In GitHub Actions, check env vars directly
+        required_vars = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION', 'S3_BUCKET_NAME']
+        all_set = True
+        for var in required_vars:
+            if os.getenv(var):
+                print(f"✓ {var} set from GitHub secrets")
+            else:
+                print(f"❌ {var} not set in GitHub secrets!")
+                all_set = False
         
-        response = input("\nDo you want to continue anyway? (y/n): ")
-        if response.lower() != 'y':
-            print("Exiting...")
+        if not all_set:
+            print("\n❌ Missing GitHub secrets!")
+            print("Configure in: Settings → Secrets and variables → Actions")
             sys.exit(1)
     else:
-        print("✓ .env file found")
+        # Local development - check for .env file
+        env_file = Path('.env')
+        if not env_file.exists():
+            print("\n⚠️  WARNING: .env file not found!")
+            print("For local development, create .env file with your AWS credentials.")
+            print("\nExample .env file:")
+            print("    AWS_ACCESS_KEY_ID=your_key")
+            print("    AWS_SECRET_ACCESS_KEY=your_secret")
+            print("    AWS_REGION=us-east-1")
+            print("    S3_BUCKET_NAME=boutiqaat-data")
+            
+            response = input("\nDo you want to continue anyway? (y/n): ")
+            if response.lower() != 'y':
+                print("Exiting...")
+                sys.exit(1)
+        else:
+            print("✓ .env file found")
     
     # Check if scraping_config.py exists
     config_file = Path('scraping_config.py')
