@@ -29,7 +29,10 @@ class BoutiqaatScraper:
     
     def __init__(self):
         """Initialize the scraper"""
-        self.fetcher = Fetcher(auto_match=config.SCRAPLING_AUTO_MATCH)
+        # Configure Fetcher before initialization (new method in v0.3)
+        if config.SCRAPLING_AUTO_MATCH:
+            Fetcher.configure(auto_match=True)
+        self.fetcher = Fetcher()
         self.base_url = config.BASE_URL_AR_KW
         
     def extract_next_data(self, html_content: str) -> Optional[Dict]:

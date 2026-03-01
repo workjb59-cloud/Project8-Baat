@@ -2,6 +2,17 @@
 
 This project is configured to run automatically every day using GitHub Actions.
 
+## ⚠️ IMPORTANT: Required Secrets
+
+**All 3 secrets MUST be configured before running the workflow:**
+- `AWS_ACCESS_KEY_ID` - Your AWS Access Key ID
+- `AWS_SECRET_ACCESS_KEY` - Your AWS Secret Access Key
+- `S3_BUCKET_NAME` - Your S3 bucket name
+
+**Note:** AWS Region is hardcoded to `us-east-1` in config.py. Change it there if needed.
+
+**Without these secrets, the workflow will fail immediately.**
+
 ## 🔧 Setup Instructions
 
 ### Step 1: Configure GitHub Secrets
@@ -10,14 +21,15 @@ Go to your GitHub repository settings and add the following secrets:
 
 **Settings → Secrets and variables → Actions → New repository secret**
 
-Add these 4 secrets:
+Add these 3 secrets:
 
 | Secret Name | Description | Example Value |
 |-------------|-------------|---------------|
 | `AWS_ACCESS_KEY_ID` | Your AWS Access Key ID | `AKIAIOSFODNN7EXAMPLE` |
 | `AWS_SECRET_ACCESS_KEY` | Your AWS Secret Access Key | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
-| `AWS_REGION` | AWS region for S3 bucket | `us-east-1` |
 | `S3_BUCKET_NAME` | Name of your S3 bucket | `boutiqaat-data` |
+
+> **Note:** AWS Region is set to `us-east-1` by default. To change it, edit the `AWS_REGION` variable in `config.py`.
 
 ### Step 2: Verify Workflow File
 

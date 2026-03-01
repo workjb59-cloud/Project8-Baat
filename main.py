@@ -378,8 +378,43 @@ class BoutiqaatPipeline:
         logger.info("=" * 80 + "\n")
 
 
+def validate_environment():
+    """
+    Validate required environment variables before starting
+    """
+    required_vars = {
+        'AWS_ACCESS_KEY_ID': config.AWS_ACCESS_KEY_ID,
+        'AWS_SECRET_ACCESS_KEY': config.AWS_SECRET_ACCESS_KEY,
+        'S3_BUCKET_NAME': config.S3_BUCKET_NAME
+    }
+    
+    missing = []
+    for var_name, var_value in required_vars.items():
+        if not var_value:
+            missing.append(var_name)
+    
+    if missing:
+        error_msg = f"Missing required environment variables: {', '.join(missing)}\n"
+        error_msg += "\nPlease set these in GitHub Actions secrets or in your .env file:\n"
+        error_msg += "  - AWS_ACCESS_KEY_ID\n"
+        error_msg += "  - AWS_SECRET_ACCESS_KEY\n"
+        error_msg += "  - S3_BUCKET_NAME\n"
+        error_msg += "\nFor GitHub Actions: Settings → Secrets and variables → Actions\n"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    logger.info(f"Environment validated. Using region: {config.AWS_REGION}, bucket: {config.S3_BUCKET_NAME}")
+
+
 def main():
     """Main entry point"""
+    # Validate environment variables first
+    try:
+        validate_environment()
+    except ValueError as e:
+        logger.error(f"Environment validation failed: {e}")
+        return
+    
     # Initialize pipeline
     pipeline = BoutiqaatPipeline()
     
