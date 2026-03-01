@@ -55,8 +55,55 @@ class BoutiqaatScraper:
         except Exception as e:
             logger.error(f"Error extracting NEXT_DATA: {e}")
             return None
-    
-    def fetch_page(self, url: str, max_retries: int = None) -> Optional[str]:
+        def extract_categories_from_data(self, next_data: Dict) -> List[Dict]:
+        """Extract category structure with URLs from __NEXT_DATA__"""
+        try:
+            categories = []
+            page_props = next_data.get('props', {}).get('pageProps', {})
+            
+            # Try to find categories in the data structure
+            category_data = page_props.get('categoryData', {}) or page_props.get('response', {}).get('categoryData', {})
+            
+            if not category_data:
+                logger.warning("No categoryData found in response")
+                return categories
+            
+            def parse_category(cat_obj):
+                """Recursively parse category and its children"""
+                result = []
+                if not cat_obj:
+                    return result
+                    
+                category_url = cat_obj.get('category_url')
+                if category_url:
+                    result.append({
+                        'name': cat_obj.get('name', ''),
+                        'category_url': category_url,
+                        'category_id': cat_obj.get('category_id', ''),
+                        'level': cat_obj.get('level', '')
+                    })
+                
+                # Parse children
+                children = cat_obj.get('children', [])
+                for child in children:
+                    result.extend(parse_category(child))
+                
+                return result
+            
+            # Parse the category tree
+            if isinstance(category_data, dict):
+                categories = parse_category(category_data)
+            elif isinstance(category_data, list):
+                for cat in category_data:
+                    categories.extend(parse_category(cat))
+            
+            logger.info(f"Extracted {len(categories)} categories with URLs")
+            return categories
+            
+        except Exception as e:
+            logger.error(f"Error extracting categories: {e}")
+            return []
+        def fetch_page(self, url: str, max_retries: int = None) -> Optional[str]:
         """Fetch a page using Scrapling with retries"""
         max_retries = max_retries or config.MAX_RETRIES
         
@@ -208,12 +255,63 @@ class BoutiqaatScraper:
         logger.info(f"Successfully scraped {len(products)} products from celebrity {celebrity_slug}")
         return products
     
+    def discover_and_scrape_categories(self, base_category_slug: str) -> Dict[str, List[Dict]]:
+        """
+        Discover categories from a base category page and scrape all children
+        
+        Args:
+            base_category_slug: Base category slug to discover from (e.g., 'skin-care/c/' or 'makeup/c/')
+            
+        Returns:
+            Dict mapping category names to product lists
+        """
+        results = {}
+        
+        # Fetch the base category page to discover all categories
+        logger.info(f"Discovering categories from: {base_category_slug}")
+        base_url = f"{self.base_url}/{base_category_slug}"
+        html = self.fetch_page(base_url)
+        
+        if not html:
+            logger.error(f"Failed to fetch base category page: {base_category_slug}")
+            return results
+        
+        next_data = self.extract_next_data(html)
+        if not next_data:
+            logger.error(f"Failed to extract data from base category: {base_category_slug}")
+            return results
+        
+        # Extract all categories with their URLs
+        discovered_categories = self.extract_categories_from_data(next_data)
+        
+        if not discovered_categories:
+            logger.warning(f"No categories discovered from {base_category_slug}")
+            return results
+        
+        logger.info(f"Discovered {len(discovered_categories)} categories, now scraping products...")
+        
+        # Scrape products from each discovered category
+        for category in tqdm(discovered_categories, desc=f"Scraping {base_category_slug}"):
+            category_name = category.get('name', 'unknown')
+            category_url = category.get('category_url')
+            
+            if not category_url:
+                logger.warning(f"No URL for category: {category_name}")
+                continue
+            
+            products = self.scrape_category_url(category_url)
+            results[category_name] = products
+            
+            time.sleep(1)  # Be respectful to the server
+        
+        return results
+    
     def scrape_categories(self, categories: List[Dict]) -> Dict[str, List[Dict]]:
         """
         Scrape multiple categories
         
         Args:
-            categories: List of dicts with 'name' and 'slug' keys
+            categories: List of dicts with 'name' and 'category_url' or 'slug' keys
             
         Returns:
             Dict mapping category names to product lists
@@ -222,15 +320,20 @@ class BoutiqaatScraper:
         
         for category in tqdm(categories, desc="Scraping categories"):
             category_name = category.get('name', category.get('slug', 'unknown'))
-            category_url = category.get('category_url') or None
-            if not category_url:
-                logger.warning(f"No category_url found for {category_name}, falling back to slug")
-                category_slug = category['slug']
-                products = self.scrape_category(category_slug)
-            else:
-                products = self.scrape_category_url(category_url)
-            results[category_name] = products
+            category_url = category.get('category_url')
             
+            if category_url:
+                products = self.scrape_category_url(category_url)
+            else:
+                logger.warning(f"No category_url found for {category_name}, falling back to slug")
+                category_slug = category.get('slug')
+                if category_slug:
+                    products = self.scrape_category(category_slug)
+                else:
+                    logger.error(f"No slug or category_url for {category_name}, skipping")
+                    continue
+            
+            results[category_name] = products
             time.sleep(1)  # Be respectful to the server
         
         return results

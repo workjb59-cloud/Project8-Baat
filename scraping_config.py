@@ -4,12 +4,19 @@ Edit this file to customize what you want to scrape
 """
 
 # CATEGORIES TO SCRAPE
-# Format: {'name': 'Display Name', 'slug': 'url-path'}
-# Find slugs from Boutiqaat URLs like: https://www.boutiqaat.com/ar-kw/women/makeup/foundations/l/
-# The slug would be: 'makeup/foundations/l'
+# Format: {'name': 'Display Name', 'slug': 'url-path', 'category_url': 'full-url'}
+# 
+# Option 1: Provide category_url (recommended - most accurate):
+#   {'name': 'Serums', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'}
+#
+# Option 2: Provide slug (fallback):
+#   {'name': 'Serums', 'slug': 'skin-care/face-serums-treatments/l'}
+#
+# Option 3: Use discover_and_scrape_categories() to auto-discover all categories from a base page
+#   Example: scraper.discover_and_scrape_categories('skin-care/c/') will find all skincare categories
 
 CATEGORIES = [
-    # Makeup Categories
+    # Makeup Categories - Update with actual category_url from website
     {'name': 'Foundations', 'slug': 'makeup/foundations/l'},
     {'name': 'Lipsticks', 'slug': 'makeup/lipstick/l'},
     {'name': 'Lip Gloss', 'slug': 'makeup/lip-gloss/l'},
@@ -21,7 +28,8 @@ CATEGORIES = [
     {'name': 'Concealer', 'slug': 'makeup/concealer/l'},
     {'name': 'Makeup Brushes', 'slug': 'makeup/makeup-brushes/l'},
     
-    # Skincare Categories
+    # Skincare Categories - Example with category_url
+    # {'name': 'Face Serums & Treatments', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'},
     {'name': 'Moisturizers', 'slug': 'skin-care/moisturizers/l'},
     {'name': 'Cleansers', 'slug': 'skin-care/cleansers/l'},
     {'name': 'Serums', 'slug': 'skin-care/serum/l'},
