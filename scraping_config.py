@@ -16,8 +16,8 @@ CATEGORIES = [
     {'name': 'Mascara', 'slug': 'makeup/mascara/l'},
     {'name': 'Blush', 'slug': 'makeup/blush/l'},
     {'name': 'Bronzer', 'slug': 'makeup/bronzer/l'},
-    {'name': 'Eyeshadow', 'slug': 'makeup/eyeshadow/l'},
-    {'name': 'Eyeliner', 'slug': 'makeup/eyeliner/l'},
+    {'name': 'Eyeshadow', 'slug': 'makeup/eye-shadow/l'},
+    {'name': 'Eyeliner', 'slug': 'makeup/eye-liner/l'},
     {'name': 'Concealer', 'slug': 'makeup/concealer/l'},
     {'name': 'Makeup Brushes', 'slug': 'makeup/makeup-brushes/l'},
     
