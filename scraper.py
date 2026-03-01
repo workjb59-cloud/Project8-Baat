@@ -91,8 +91,26 @@ class BoutiqaatScraper:
             
             # Navigate the JSON structure
             page_props = next_data.get('props', {}).get('pageProps', {})
+            
+            if not page_props:
+                logger.warning("No pageProps found in __NEXT_DATA__")
+                logger.warning(f"Available keys in props: {list(next_data.get('props', {}).keys())}")
+                return []
+            
             response = page_props.get('response', {})
+            
+            if not response:
+                logger.warning("No response found in pageProps")
+                logger.warning(f"Available keys in pageProps: {list(page_props.keys())}")
+                return []
+            
             products_data = response.get('products', [])
+            
+            if not products_data:
+                logger.warning("No products array found in response")
+                logger.warning(f"Available keys in response: {list(response.keys())}")
+                logger.warning(f"Response type: {type(response)}")
+                return []
             
             # Products are nested in arrays - flatten them
             for product_array in products_data:
@@ -129,46 +147,64 @@ class BoutiqaatScraper:
         """Scrape products from a category"""
         url = f"{self.base_url}/{category_slug}"
         logger.info(f"Scraping category: {category_slug}")
+        logger.info(f"Full URL: {url}")
         
         html = self.fetch_page(url)
         if not html:
+            logger.error(f"Failed to fetch HTML for category: {category_slug}")
             return []
         
         next_data = self.extract_next_data(html)
         if not next_data:
+            logger.error(f"Failed to extract __NEXT_DATA__ for category: {category_slug}")
+            logger.warning(f"HTML length: {len(html)} characters")
             return []
         
-        return self.parse_products(next_data)
+        products = self.parse_products(next_data)
+        logger.info(f"Successfully scraped {len(products)} products from {category_slug}")
+        return products
     
     def scrape_brand(self, brand_slug: str) -> List[Dict]:
         """Scrape products from a brand"""
         url = f"{self.base_url}/{brand_slug}/br/"
         logger.info(f"Scraping brand: {brand_slug}")
+        logger.info(f"Full URL: {url}")
         
         html = self.fetch_page(url)
         if not html:
+            logger.error(f"Failed to fetch HTML for brand: {brand_slug}")
             return []
         
         next_data = self.extract_next_data(html)
         if not next_data:
+            logger.error(f"Failed to extract __NEXT_DATA__ for brand: {brand_slug}")
+            logger.warning(f"HTML length: {len(html)} characters")
             return []
         
-        return self.parse_products(next_data)
+        products = self.parse_products(next_data)
+        logger.info(f"Successfully scraped {len(products)} products from brand {brand_slug}")
+        return products
     
     def scrape_celebrity(self, celebrity_slug: str) -> List[Dict]:
         """Scrape products from a celebrity"""
         url = f"{self.base_url}/{celebrity_slug}/cb/"
         logger.info(f"Scraping celebrity: {celebrity_slug}")
+        logger.info(f"Full URL: {url}")
         
         html = self.fetch_page(url)
         if not html:
+            logger.error(f"Failed to fetch HTML for celebrity: {celebrity_slug}")
             return []
         
         next_data = self.extract_next_data(html)
         if not next_data:
+            logger.error(f"Failed to extract __NEXT_DATA__ for celebrity: {celebrity_slug}")
+            logger.warning(f"HTML length: {len(html)} characters")
             return []
         
-        return self.parse_products(next_data)
+        products = self.parse_products(next_data)
+        logger.info(f"Successfully scraped {len(products)} products from celebrity {celebrity_slug}")
+        return products
     
     def scrape_categories(self, categories: List[Dict]) -> Dict[str, List[Dict]]:
         """

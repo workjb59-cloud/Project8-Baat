@@ -142,6 +142,9 @@ class ExcelExporter:
         wb = Workbook()
         wb.remove(wb.active)  # Remove default sheet
         
+        # Track if any sheets were added
+        sheets_added = 0
+        
         for brand_name, products in brands_data.items():
             if not products:
                 logger.warning(f"No products found for brand: {brand_name}")
@@ -155,6 +158,7 @@ class ExcelExporter:
             # Create sheet name (Excel limit is 31 characters)
             sheet_name = self._clean_sheet_name(brand_name)[:31]
             ws = wb.create_sheet(title=sheet_name)
+            sheets_added += 1
             
             # Write data with styling
             for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
@@ -196,6 +200,11 @@ class ExcelExporter:
             # Freeze header row
             ws.freeze_panes = 'A2'
         
+        # Only save if we have sheets
+        if sheets_added == 0:
+            logger.warning("No products found for any brand, skipping Excel file")
+            return {}
+        
         # Save to bytes
         excel_buffer = io.BytesIO()
         wb.save(excel_buffer)
@@ -225,6 +234,9 @@ class ExcelExporter:
             wb = Workbook()
             wb.remove(wb.active)  # Remove default sheet
             
+            # Track if any sheets were added
+            sheets_added = 0
+            
             for subcat_name, products in subcategories.items():
                 if not products:
                     logger.warning(f"No products found for subcategory: {subcat_name}")
@@ -238,6 +250,7 @@ class ExcelExporter:
                 # Create sheet name
                 sheet_name = self._clean_sheet_name(subcat_name)[:31]
                 ws = wb.create_sheet(title=sheet_name)
+                sheets_added += 1
                 
                 # Write data with styling
                 for r_idx, row in enumerate(dataframe_to_rows(df, index=False, header=True), 1):
@@ -275,6 +288,11 @@ class ExcelExporter:
                     ws.column_dimensions[column_letter].width = adjusted_width
                 
                 ws.freeze_panes = 'A2'
+            
+            # Only save if we have sheets
+            if sheets_added == 0:
+                logger.warning(f"No products found for any subcategory in {main_category}, skipping Excel file")
+                continue
             
             # Save to bytes
             excel_buffer = io.BytesIO()
