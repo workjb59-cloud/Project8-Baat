@@ -144,24 +144,26 @@ class BoutiqaatScraper:
             return []
     
     def scrape_category(self, category_slug: str) -> List[Dict]:
-        """Scrape products from a category"""
+        """Scrape products from a category (legacy, uses slug)"""
         url = f"{self.base_url}/{category_slug}"
         logger.info(f"Scraping category: {category_slug}")
         logger.info(f"Full URL: {url}")
-        
+        return self.scrape_category_url(url)
+
+    def scrape_category_url(self, url: str) -> List[Dict]:
+        """Scrape products from a category using the full category_url"""
+        logger.info(f"Scraping category by URL: {url}")
         html = self.fetch_page(url)
         if not html:
-            logger.error(f"Failed to fetch HTML for category: {category_slug}")
+            logger.error(f"Failed to fetch HTML for category URL: {url}")
             return []
-        
         next_data = self.extract_next_data(html)
         if not next_data:
-            logger.error(f"Failed to extract __NEXT_DATA__ for category: {category_slug}")
+            logger.error(f"Failed to extract __NEXT_DATA__ for category URL: {url}")
             logger.warning(f"HTML length: {len(html)} characters")
             return []
-        
         products = self.parse_products(next_data)
-        logger.info(f"Successfully scraped {len(products)} products from {category_slug}")
+        logger.info(f"Successfully scraped {len(products)} products from {url}")
         return products
     
     def scrape_brand(self, brand_slug: str) -> List[Dict]:
@@ -220,9 +222,13 @@ class BoutiqaatScraper:
         
         for category in tqdm(categories, desc="Scraping categories"):
             category_name = category.get('name', category.get('slug', 'unknown'))
-            category_slug = category['slug']
-            
-            products = self.scrape_category(category_slug)
+            category_url = category.get('category_url') or None
+            if not category_url:
+                logger.warning(f"No category_url found for {category_name}, falling back to slug")
+                category_slug = category['slug']
+                products = self.scrape_category(category_slug)
+            else:
+                products = self.scrape_category_url(category_url)
             results[category_name] = products
             
             time.sleep(1)  # Be respectful to the server
