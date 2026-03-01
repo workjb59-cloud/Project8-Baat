@@ -177,9 +177,10 @@ class BoutiqaatPipeline:
     def process_categories(self, categories: List[Dict]) -> Dict:
         """
         Process categories: scrape, download images, create Excel, upload to S3
+        Handles both auto-discover and manual category_url configurations
         
         Args:
-            categories: List of dicts with 'name' and 'slug' keys
+            categories: List of dicts with 'auto_discover' OR 'category_url' keys
             
         Returns:
             Dict with processing results
@@ -199,8 +200,30 @@ class BoutiqaatPipeline:
         
         try:
             # Step 1: Scrape products
-            logger.info(f"Step 1/4: Scraping {len(categories)} categories...")
-            categories_data = self.scraper.scrape_categories(categories)
+            logger.info(f"Step 1/4: Scraping categories...")
+            
+            # Handle auto-discovery and manual categories
+            categories_data = {}
+            auto_discover_configs = [cat for cat in categories if cat.get('auto_discover')]
+            manual_categories = [cat for cat in categories if cat.get('category_url')]
+            
+            # Auto-discover categories
+            if auto_discover_configs:
+                logger.info(f"Auto-discovering from {len(auto_discover_configs)} base categories...")
+                for config_item in auto_discover_configs:
+                    base_slug = config_item['auto_discover']
+                    section_name = config_item.get('name', base_slug)
+                    logger.info(f"📂 Discovering all categories from: {section_name} ({base_slug})")
+                    
+                    discovered_data = self.scraper.discover_and_scrape_categories(base_slug)
+                    categories_data.update(discovered_data)
+                    logger.info(f"✅ Discovered and scraped {len(discovered_data)} categories from {section_name}")
+            
+            # Scrape manual categories
+            if manual_categories:
+                logger.info(f"Scraping {len(manual_categories)} manually configured categories...")
+                manual_data = self.scraper.scrape_categories(manual_categories)
+                categories_data.update(manual_data)
             
             if not categories_data:
                 logger.warning("No data scraped for categories")
@@ -428,17 +451,24 @@ def main():
         
         logger.info(f"Loaded configuration: {len(categories)} categories, {len(brands)} brands, {len(celebrities)} celebrities")
         
-        # Validate categories have category_url
+        # Validate categories configuration
         if categories:
-            missing_url = [cat.get('name', 'unknown') for cat in categories if not cat.get('category_url')]
-            if missing_url:
-                logger.warning(f"⚠️  {len(missing_url)} categories are missing 'category_url' and will be SKIPPED:")
-                for name in missing_url[:5]:  # Show first 5
+            auto_discover_count = len([cat for cat in categories if cat.get('auto_discover')])
+            manual_count = len([cat for cat in categories if cat.get('category_url')])
+            invalid_count = len([cat for cat in categories if not cat.get('category_url') and not cat.get('auto_discover')])
+            
+            if auto_discover_count > 0:
+                logger.info(f"✅ Using auto-discovery for {auto_discover_count} base categories")
+            if manual_count > 0:
+                logger.info(f"✅ Using {manual_count} manually configured categories")
+            if invalid_count > 0:
+                invalid_cats = [cat.get('name', 'unknown') for cat in categories if not cat.get('category_url') and not cat.get('auto_discover')]
+                logger.warning(f"⚠️  {invalid_count} categories are missing 'category_url' or 'auto_discover' and will be SKIPPED:")
+                for name in invalid_cats[:5]:  # Show first 5
                     logger.warning(f"   - {name}")
-                logger.warning("   Run 'python discover_categories.py' to get correct URLs")
         else:
             logger.warning("⚠️  No categories configured in scraping_config.py")
-            logger.warning("   Run 'python discover_categories.py' to discover categories")
+            logger.warning("   Add categories with 'auto_discover' or 'category_url'")
         
     except ImportError:
         logger.warning("scraping_config.py not found. Using sample data.")

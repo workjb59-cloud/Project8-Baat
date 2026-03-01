@@ -15,21 +15,25 @@ Edit this file to customize what you want to scrape
 # CATEGORIES TO SCRAPE
 # Format: {'name': 'Display Name', 'category_url': 'full-url'}
 
+# CATEGORIES TO SCRAPE
+# 
+# Option 1: AUTO-DISCOVER (Recommended)
+# Provide base category pages, and the scraper will automatically discover all subcategories
+# Format: {'name': 'Section Name', 'auto_discover': 'base-category-slug'}
+#
+# Option 2: MANUAL
+# Provide specific category URLs
+# Format: {'name': 'Category Name', 'category_url': 'full-url'}
+
 CATEGORIES = [
-    # Sample categories - Add more from discover_categories.py
-    # Makeup
-    {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
-    {'name': 'Lipsticks', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/lipstick/l/'},
-    {'name': 'Mascara', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/mascara/l/'},
-    {'name': 'Eyeshadow', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/eye-shadow/l/'},
-    {'name': 'Brushes & Accessories', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/brushes-accessories/l/'},
+    # Auto-discover all categories from base pages
+    {'name': 'Makeup', 'auto_discover': 'makeup/c/'},
+    {'name': 'Skincare', 'auto_discover': 'skin-care/c/'},
+    {'name': 'Fragrances', 'auto_discover': 'fragrances/c/'},
+    {'name': 'Hair Care', 'auto_discover': 'hair-care/c/'},
     
-    # Skincare
-    {'name': 'Face Serums & Treatments', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'},
-    {'name': 'Moisturizers', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/moisturizers/l/'},
-    {'name': 'Cleansers', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/cleansers/l/'},
-    
-    # Run 'python discover_categories.py' to get all categories with correct URLs
+    # Or add specific categories manually:
+    # {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
 ]
 
 
