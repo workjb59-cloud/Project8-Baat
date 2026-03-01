@@ -3,47 +3,24 @@ Configuration for categories, brands, and celebrities to scrape
 Edit this file to customize what you want to scrape
 """
 
-# CATEGORIES TO SCRAPE
-# Format: {'name': 'Display Name', 'slug': 'url-path', 'category_url': 'full-url'}
+# IMPORTANT: Categories now REQUIRE 'category_url' (not slug)
 # 
-# Option 1: Provide category_url (recommended - most accurate):
-#   {'name': 'Serums', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'}
+# HOW TO GET CATEGORY URLs:
+# Run this command to discover all category URLs from the website:
+#   python discover_categories.py
 #
-# Option 2: Provide slug (fallback):
-#   {'name': 'Serums', 'slug': 'skin-care/face-serums-treatments/l'}
-#
-# Option 3: Use discover_and_scrape_categories() to auto-discover all categories from a base page
-#   Example: scraper.discover_and_scrape_categories('skin-care/c/') will find all skincare categories
+# This will create 'discovered_categories.json' with all correct URLs
+# Then copy the URLs here
+
+# CATEGORIES TO SCRAPE
+# Format: {'name': 'Display Name', 'category_url': 'full-url'}
 
 CATEGORIES = [
-    # Makeup Categories - Update with actual category_url from website
-    {'name': 'Foundations', 'slug': 'makeup/foundations/l'},
-    {'name': 'Lipsticks', 'slug': 'makeup/lipstick/l'},
-    {'name': 'Lip Gloss', 'slug': 'makeup/lip-gloss/l'},
-    {'name': 'Mascara', 'slug': 'makeup/mascara/l'},
-    {'name': 'Blush', 'slug': 'makeup/blush/l'},
-    {'name': 'Bronzer', 'slug': 'makeup/bronzer/l'},
-    {'name': 'Eyeshadow', 'slug': 'makeup/eye-shadow/l'},
-    {'name': 'Eyeliner', 'slug': 'makeup/eye-liner/l'},
-    {'name': 'Concealer', 'slug': 'makeup/concealer/l'},
-    {'name': 'Makeup Brushes', 'slug': 'makeup/makeup-brushes/l'},
-    
-    # Skincare Categories - Example with category_url
+    # Example - Replace these with actual URLs from discover_categories.py
     # {'name': 'Face Serums & Treatments', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'},
-    {'name': 'Moisturizers', 'slug': 'skin-care/moisturizers/l'},
-    {'name': 'Cleansers', 'slug': 'skin-care/cleansers/l'},
-    {'name': 'Serums', 'slug': 'skin-care/serum/l'},
-    {'name': 'Sunscreen', 'slug': 'skin-care/sunscreen/l'},
-    {'name': 'Face Masks', 'slug': 'skin-care/face-mask/l'},
+    # {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
     
-    # Fragrance Categories
-    {'name': 'Perfumes', 'slug': 'fragrances/perfumes-1/l'},
-    {'name': 'Body Mists', 'slug': 'fragrances/body-mists/l'},
-    
-    # Hair Care
-    {'name': 'Shampoo', 'slug': 'hair-care/shampoo/l'},
-    {'name': 'Conditioner', 'slug': 'hair-care/conditioner/l'},
-    {'name': 'Hair Styling', 'slug': 'hair-care/hair-styling/l'},
+    # Uncomment and add your categories here after running discover_categories.py
 ]
 
 

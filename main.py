@@ -428,6 +428,18 @@ def main():
         
         logger.info(f"Loaded configuration: {len(categories)} categories, {len(brands)} brands, {len(celebrities)} celebrities")
         
+        # Validate categories have category_url
+        if categories:
+            missing_url = [cat.get('name', 'unknown') for cat in categories if not cat.get('category_url')]
+            if missing_url:
+                logger.warning(f"⚠️  {len(missing_url)} categories are missing 'category_url' and will be SKIPPED:")
+                for name in missing_url[:5]:  # Show first 5
+                    logger.warning(f"   - {name}")
+                logger.warning("   Run 'python discover_categories.py' to get correct URLs")
+        else:
+            logger.warning("⚠️  No categories configured in scraping_config.py")
+            logger.warning("   Run 'python discover_categories.py' to discover categories")
+        
     except ImportError:
         logger.warning("scraping_config.py not found. Using sample data.")
         # Fallback to sample data

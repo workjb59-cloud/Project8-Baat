@@ -193,10 +193,13 @@ class BoutiqaatScraper:
             return []
     
     def scrape_category(self, category_slug: str) -> List[Dict]:
-        """Scrape products from a category (legacy, uses slug)"""
+        """
+        Legacy method - constructs URL from slug (not recommended)
+        Use scrape_category_url() or provide category_url in config instead
+        """
         url = f"{self.base_url}/{category_slug}"
-        logger.info(f"Scraping category: {category_slug}")
-        logger.info(f"Full URL: {url}")
+        logger.warning(f"⚠️  Using slug-based URL construction (not recommended): {category_slug}")
+        logger.warning(f"   Consider using 'category_url' in your config instead")
         return self.scrape_category_url(url)
 
     def scrape_category_url(self, url: str) -> List[Dict]:
@@ -310,10 +313,10 @@ class BoutiqaatScraper:
     
     def scrape_categories(self, categories: List[Dict]) -> Dict[str, List[Dict]]:
         """
-        Scrape multiple categories
+        Scrape multiple categories using category_url
         
         Args:
-            categories: List of dicts with 'name' and 'category_url' or 'slug' keys
+            categories: List of dicts with 'name' and 'category_url' keys
             
         Returns:
             Dict mapping category names to product lists
@@ -321,20 +324,15 @@ class BoutiqaatScraper:
         results = {}
         
         for category in tqdm(categories, desc="Scraping categories"):
-            category_name = category.get('name', category.get('slug', 'unknown'))
+            category_name = category.get('name', 'unknown')
             category_url = category.get('category_url')
             
-            if category_url:
-                products = self.scrape_category_url(category_url)
-            else:
-                logger.warning(f"No category_url found for {category_name}, falling back to slug")
-                category_slug = category.get('slug')
-                if category_slug:
-                    products = self.scrape_category(category_slug)
-                else:
-                    logger.error(f"No slug or category_url for {category_name}, skipping")
-                    continue
+            if not category_url:
+                logger.error(f"❌ No category_url provided for '{category_name}', SKIPPING")
+                logger.error(f"   Run 'python discover_categories.py' to get correct URLs")
+                continue
             
+            products = self.scrape_category_url(category_url)
             results[category_name] = products
             time.sleep(1)  # Be respectful to the server
         
