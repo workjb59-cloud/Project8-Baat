@@ -29,10 +29,8 @@ class BoutiqaatScraper:
     
     def __init__(self):
         """Initialize the scraper"""
-        # Configure Fetcher before initialization (new method in v0.3)
-        if config.SCRAPLING_AUTO_MATCH:
-            Fetcher.configure(auto_match=True)
-        self.fetcher = Fetcher()
+        # Initialize Fetcher with configuration
+        self.fetcher = Fetcher(auto_match=config.SCRAPLING_AUTO_MATCH, storage="memory")
         self.base_url = config.BASE_URL_AR_KW
         
     def extract_next_data(self, html_content: str) -> Optional[Dict]:
@@ -57,52 +55,77 @@ class BoutiqaatScraper:
             return None
     
     def extract_categories_from_data(self, next_data: Dict) -> List[Dict]:
-        """Extract category structure with URLs from __NEXT_DATA__"""
+        """
+        Extract category structure with URLs from __NEXT_DATA__
+        
+        DEPRECATED: This method tried to extract from __NEXT_DATA__ but categories
+        are not in that structure. Use extract_categories_from_html() instead.
+        """
+        logger.warning("extract_categories_from_data is deprecated. Categories not in __NEXT_DATA__")
+        return []
+    
+    def extract_categories_from_html(self, html: str, base_slug: str) -> List[Dict]:
+        """
+        Extract category links from HTML
+        
+        Args:
+            html: HTML content of the page
+            base_slug: Base category slug (e.g., 'makeup/c/')
+            
+        Returns:
+            List of category dicts with name, category_url, etc.
+        """
         try:
+            from bs4 import BeautifulSoup
+            
             categories = []
-            page_props = next_data.get('props', {}).get('pageProps', {})
+            soup = BeautifulSoup(html, 'lxml')
             
-            # Try to find categories in the data structure
-            category_data = page_props.get('categoryData', {}) or page_props.get('response', {}).get('categoryData', {})
+            # Get the base category name from slug (e.g., 'makeup/c/' -> 'makeup')
+            base_name = base_slug.replace('/c/', '').replace('/', '')
             
-            if not category_data:
-                logger.warning("No categoryData found in response")
-                return categories
-            
-            def parse_category(cat_obj):
-                """Recursively parse category and its children"""
-                result = []
-                if not cat_obj:
-                    return result
+            # Find all links - look for subcategory links with /l/ (those contain products)
+            for link in soup.find_all('a', href=True):
+                href = link.get('href', '')
+                text = link.get_text(strip=True)
+                
+                # Look for subcategory URLs with /l/ that match our base category
+                # Example: /en-sa/women/makeup/foundations/l/
+                if '/l/' in href and base_name in href.lower() and text:
+                    # Extract the category path from the href
+                    # Convert relative URLs to absolute
+                    if href.startswith('/'):
+                        # href is like /en-kw/women/makeup/foundations/l/
+                        # Extract the part after /women/ to reconstruct correct URL
+                        if '/women/' in href:
+                            path_after_women = href.split('/women/')[-1]
+                            category_url = f"{self.base_url}/{path_after_women}"
+                        else:
+                            category_url = f"{self.base_url}{href}"
+                    else:
+                        category_url = href
                     
-                category_url = cat_obj.get('category_url')
-                if category_url:
-                    result.append({
-                        'name': cat_obj.get('name', ''),
-                        'category_url': category_url,
-                        'category_id': cat_obj.get('category_id', ''),
-                        'level': cat_obj.get('level', '')
-                    })
-                
-                # Parse children
-                children = cat_obj.get('children', [])
-                for child in children:
-                    result.extend(parse_category(child))
-                
-                return result
+                    # Extract category ID if present (some URLs have /l/ID/ format)
+                    category_id = ''
+                    if '/l/' in href:
+                        parts = href.split('/l/')
+                        if len(parts) > 1 and parts[1].strip('/'):
+                            category_id = parts[1].strip('/')
+                    
+                    # Only add unique categories
+                    if category_url not in [cat['category_url'] for cat in categories]:
+                        categories.append({
+                            'name': text,
+                            'category_url': category_url,
+                            'category_id': category_id,
+                            'level': '2'  # These are subcategories
+                        })
             
-            # Parse the category tree
-            if isinstance(category_data, dict):
-                categories = parse_category(category_data)
-            elif isinstance(category_data, list):
-                for cat in category_data:
-                    categories.extend(parse_category(cat))
-            
-            logger.info(f"Extracted {len(categories)} categories with URLs")
+            logger.info(f"Extracted {len(categories)} subcategories from HTML for {base_slug}")
             return categories
             
         except Exception as e:
-            logger.error(f"Error extracting categories: {e}")
+            logger.error(f"Error extracting categories from HTML: {e}")
             return []
     
     def fetch_page(self, url: str, max_retries: int = None) -> Optional[str]:
@@ -117,7 +140,11 @@ class BoutiqaatScraper:
                 page = self.fetcher.get(url, headers=config.HEADERS)
                 
                 if page and hasattr(page, 'body'):
-                    return page.body
+                    body = page.body
+                    # Decode if bytes
+                    if isinstance(body, bytes):
+                        return body.decode('utf-8')
+                    return body
                 elif page and hasattr(page, 'text'):
                     return page.text
                 else:
@@ -281,16 +308,12 @@ class BoutiqaatScraper:
             logger.error(f"Failed to fetch base category page: {base_category_slug}")
             return results
         
-        next_data = self.extract_next_data(html)
-        if not next_data:
-            logger.error(f"Failed to extract data from base category: {base_category_slug}")
-            return results
-        
-        # Extract all categories with their URLs
-        discovered_categories = self.extract_categories_from_data(next_data)
+        # Extract categories from HTML (not __NEXT_DATA__)
+        discovered_categories = self.extract_categories_from_html(html, base_category_slug)
         
         if not discovered_categories:
             logger.warning(f"No categories discovered from {base_category_slug}")
+            logger.warning(f"This may be normal if the page doesn't list subcategories")
             return results
         
         logger.info(f"Discovered {len(discovered_categories)} categories, now scraping products...")

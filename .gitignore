@@ -71,3 +71,15 @@ logs/
 *.tmp
 *.temp
 README.md
+.venv/
+all_links.txt
+debug_all_links.py
+debug_structure.py
+debug_html_categories.py
+test_category_extraction.py
+next_data_structure.json
+page_html.html
+test_discovery.py
+test_product_scraping.py
+test_full_auto_discovery.py
+AUTO_DISCOVERY_FIX.md
