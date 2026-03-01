@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime
 from typing import List, Dict, Optional
-from scrapling import Adaptor
+from scrapling import Fetcher
 from tqdm import tqdm
 import config
 import logging
@@ -29,10 +29,7 @@ class BoutiqaatScraper:
     
     def __init__(self):
         """Initialize the scraper"""
-        self.adaptor = Adaptor(
-            auto_match=config.SCRAPLING_AUTO_MATCH,
-            timeout=config.SCRAPLING_TIMEOUT
-        )
+        self.fetcher = Fetcher(auto_match=config.SCRAPLING_AUTO_MATCH)
         self.base_url = config.BASE_URL_AR_KW
         
     def extract_next_data(self, html_content: str) -> Optional[Dict]:
@@ -64,15 +61,15 @@ class BoutiqaatScraper:
             try:
                 logger.info(f"Fetching: {url} (Attempt {attempt + 1}/{max_retries})")
                 
-                # Use Scrapling to fetch the page
-                response = self.adaptor.get(url, headers=config.HEADERS)
+                # Use Scrapling Fetcher to fetch the page
+                page = self.fetcher.get(url, headers=config.HEADERS)
                 
-                if response and hasattr(response, 'text'):
-                    return response.text
-                elif response and hasattr(response, 'content'):
-                    return response.content.decode('utf-8')
+                if page and hasattr(page, 'body'):
+                    return page.body
+                elif page and hasattr(page, 'text'):
+                    return page.text
                 else:
-                    logger.warning(f"Unexpected response type: {type(response)}")
+                    logger.warning(f"Unexpected response type: {type(page)}")
                     
             except Exception as e:
                 logger.error(f"Error fetching {url}: {e}")
