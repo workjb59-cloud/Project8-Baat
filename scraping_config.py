@@ -16,11 +16,20 @@ Edit this file to customize what you want to scrape
 # Format: {'name': 'Display Name', 'category_url': 'full-url'}
 
 CATEGORIES = [
-    # Example - Replace these with actual URLs from discover_categories.py
-    # {'name': 'Face Serums & Treatments', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'},
-    # {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
+    # Sample categories - Add more from discover_categories.py
+    # Makeup
+    {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
+    {'name': 'Lipsticks', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/lipstick/l/'},
+    {'name': 'Mascara', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/mascara/l/'},
+    {'name': 'Eyeshadow', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/eye-shadow/l/'},
+    {'name': 'Brushes & Accessories', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/brushes-accessories/l/'},
     
-    # Uncomment and add your categories here after running discover_categories.py
+    # Skincare
+    {'name': 'Face Serums & Treatments', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/face-serums-treatments/l/'},
+    {'name': 'Moisturizers', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/moisturizers/l/'},
+    {'name': 'Cleansers', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/skin-care/cleansers/l/'},
+    
+    # Run 'python discover_categories.py' to get all categories with correct URLs
 ]
 
 
