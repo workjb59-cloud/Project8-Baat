@@ -58,11 +58,63 @@ class BoutiqaatScraper:
         """
         Extract category structure with URLs from __NEXT_DATA__
         
-        DEPRECATED: This method tried to extract from __NEXT_DATA__ but categories
-        are not in that structure. Use extract_categories_from_html() instead.
+        Path: props.pageProps.I_AM_FROM_SERVER.dataAssets.categories.shoplanding_category
         """
-        logger.warning("extract_categories_from_data is deprecated. Categories not in __NEXT_DATA__")
-        return []
+        try:
+            categories = []
+            page_props = next_data.get('props', {}).get('pageProps', {})
+            
+            # Navigate to the correct path
+            i_am_from_server = page_props.get('I_AM_FROM_SERVER', {})
+            data_assets = i_am_from_server.get('dataAssets')
+            
+            if not data_assets:
+                logger.warning("No dataAssets found in I_AM_FROM_SERVER")
+                return categories
+            
+            # dataAssets can be null or contain categories
+            categories_data = data_assets.get('categories', {}) if isinstance(data_assets, dict) else {}
+            shoplanding_category = categories_data.get('shoplanding_category', [])
+            
+            if not shoplanding_category:
+                logger.warning("No shoplanding_category found in dataAssets.categories")
+                return categories
+            
+            def parse_category(cat_obj):
+                """Recursively parse category and its children"""
+                result = []
+                if not cat_obj:
+                    return result
+                
+                # Only include categories with URLs
+                category_url = cat_obj.get('category_url')
+                if category_url and cat_obj.get('active') == '1':
+                    result.append({
+                        'name': cat_obj.get('name', ''),
+                        'category_url': category_url,
+                        'category_id': cat_obj.get('category_id', ''),
+                        'level': cat_obj.get('level', ''),
+                        'slug': cat_obj.get('slug', ''),
+                        'parent_id': cat_obj.get('parent_id', '')
+                    })
+                
+                # Recursively parse children
+                children = cat_obj.get('children', [])
+                for child in children:
+                    result.extend(parse_category(child))
+                
+                return result
+            
+            # Parse the category tree
+            for cat in shoplanding_category:
+                categories.extend(parse_category(cat))
+            
+            logger.info(f"Extracted {len(categories)} categories from __NEXT_DATA__")
+            return categories
+            
+        except Exception as e:
+            logger.error(f"Error extracting categories from __NEXT_DATA__: {e}")
+            return []
     
     def extract_categories_from_html(self, html: str, base_slug: str) -> List[Dict]:
         """
@@ -292,31 +344,56 @@ class BoutiqaatScraper:
         Discover categories from a base category page and scrape all children
         
         Args:
-            base_category_slug: Base category slug to discover from (e.g., 'skin-care/c/' or 'makeup/c/')
+            base_category_slug: Base category slug to discover from
+                               - Specific slug like 'makeup/c/' or 'skin-care/c/'
+                               - 'all' to discover ALL categories from entire site
             
         Returns:
             Dict mapping category names to product lists
         """
         results = {}
         
-        # Fetch the base category page to discover all categories
+        # Fetch any page to get the full category tree (all pages have same navigation data)
         logger.info(f"Discovering categories from: {base_category_slug}")
-        base_url = f"{self.base_url}/{base_category_slug}"
+        base_url = f"{self.base_url}/makeup/c/"  # Any page works, they all have full nav
         html = self.fetch_page(base_url)
         
         if not html:
-            logger.error(f"Failed to fetch base category page: {base_category_slug}")
+            logger.error(f"Failed to fetch page for category discovery")
             return results
         
-        # Extract categories from HTML (not __NEXT_DATA__)
-        discovered_categories = self.extract_categories_from_html(html, base_category_slug)
+        # Extract __NEXT_DATA__ to get category tree
+        next_data = self.extract_next_data(html)
+        if not next_data:
+            logger.error(f"Failed to extract __NEXT_DATA__")
+            return results
+        
+        # Extract all categories from the JSON structure
+        all_categories = self.extract_categories_from_data(next_data)
+        
+        if not all_categories:
+            logger.warning(f"No categories discovered")
+            return results
+        
+        # Filter categories based on base_category_slug
+        if base_category_slug.lower() == 'all':
+            # Discover ALL categories from the entire site
+            discovered_categories = all_categories
+            logger.info(f"Discovering ALL categories from entire site: {len(discovered_categories)} total")
+        else:
+            # Filter by slug prefix to get only categories under the specified base
+            base_slug_clean = base_category_slug.replace('/c/', '').replace('/l/', '').strip('/')
+            discovered_categories = [
+                cat for cat in all_categories 
+                if base_slug_clean in cat.get('slug', '').lower()
+            ]
+            logger.info(f"Discovered {len(discovered_categories)} categories under '{base_category_slug}'")
         
         if not discovered_categories:
-            logger.warning(f"No categories discovered from {base_category_slug}")
-            logger.warning(f"This may be normal if the page doesn't list subcategories")
+            logger.warning(f"No categories match filter: {base_category_slug}")
             return results
         
-        logger.info(f"Discovered {len(discovered_categories)} categories, now scraping products...")
+        logger.info(f"Now scraping products from {len(discovered_categories)} categories...")
         
         # Scrape products from each discovered category
         for category in tqdm(discovered_categories, desc=f"Scraping {base_category_slug}"):

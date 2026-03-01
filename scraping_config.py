@@ -17,22 +17,41 @@ Edit this file to customize what you want to scrape
 
 # CATEGORIES TO SCRAPE
 # 
-# Option 1: AUTO-DISCOVER (Recommended)
-# Provide base category pages, and the scraper will automatically discover all subcategories
+# Option 1: AUTO-DISCOVER ALL (Recommended - Discovers all 18+ main categories with 500+ subcategories)
+# Format: {'name': 'All Categories', 'auto_discover': 'all'}
+#
+# Option 2: AUTO-DISCOVER SPECIFIC SECTION
+# Provide base category slug to discover only that section
 # Format: {'name': 'Section Name', 'auto_discover': 'base-category-slug'}
 #
-# Option 2: MANUAL
+# Option 3: MANUAL
 # Provide specific category URLs
 # Format: {'name': 'Category Name', 'category_url': 'full-url'}
 
 CATEGORIES = [
-    # Auto-discover all categories from base pages
-    {'name': 'Makeup', 'auto_discover': 'makeup/c/'},
-    {'name': 'Skincare', 'auto_discover': 'skin-care/c/'},
-    {'name': 'Fragrances', 'auto_discover': 'fragrances/c/'},
-    {'name': 'Hair Care', 'auto_discover': 'hair-care/c/'},
+    # Option 1: Discover ALL categories from entire site (18 main categories, 509+ total)
+    {'name': 'All Categories', 'auto_discover': 'all'},
     
-    # Or add specific categories manually:
+    # Or Option 2: Auto-discover specific sections only:
+    # {'name': 'Makeup', 'auto_discover': 'makeup/c/'},
+    # {'name': 'Skincare', 'auto_discover': 'skin-care/c/'},
+    # {'name': 'Korean Beauty', 'auto_discover': 'korean-beauty/c/'},
+    # {'name': 'Arabic Fragrances', 'auto_discover': 'arabic-fragrances-1/c/'},
+    # {'name': 'International Fragrances', 'auto_discover': 'fragrances-1/c/'},
+    # {'name': 'Hair', 'auto_discover': 'hair/c/'},
+    # {'name': 'Bath & Body', 'auto_discover': 'bath-body/c/'},
+    # {'name': 'Eyewear', 'auto_discover': 'eyewear/c/'},
+    # {'name': 'Contact Lenses', 'auto_discover': 'contact-lenses-3/c/'},
+    # {'name': 'Apparel', 'auto_discover': 'apparel-1/c/'},
+    # {'name': 'Footwear', 'auto_discover': 'footwear-1/c/'},
+    # {'name': 'Sports', 'auto_discover': 'sports-1/c/'},
+    # {'name': 'Derma Beauty', 'auto_discover': 'derma-beauty-women-level-1/c/'},
+    # {'name': 'Electronics', 'auto_discover': 'electronics-1/c/'},
+    # {'name': 'Home & Living', 'auto_discover': 'home-living-846333918/c/'},
+    # {'name': 'Accessories', 'auto_discover': 'accessories-1/c/'},
+    # {'name': 'Watches', 'auto_discover': 'watches-1/c/'},
+    
+    # Or Option 3: Add specific categories manually:
     # {'name': 'Foundations', 'category_url': 'https://www.boutiqaat.com/kw-ar/women/makeup/foundations/l/'},
 ]
 
