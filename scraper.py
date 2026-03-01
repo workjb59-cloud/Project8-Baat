@@ -55,7 +55,8 @@ class BoutiqaatScraper:
         except Exception as e:
             logger.error(f"Error extracting NEXT_DATA: {e}")
             return None
-        def extract_categories_from_data(self, next_data: Dict) -> List[Dict]:
+    
+    def extract_categories_from_data(self, next_data: Dict) -> List[Dict]:
         """Extract category structure with URLs from __NEXT_DATA__"""
         try:
             categories = []
@@ -103,7 +104,8 @@ class BoutiqaatScraper:
         except Exception as e:
             logger.error(f"Error extracting categories: {e}")
             return []
-        def fetch_page(self, url: str, max_retries: int = None) -> Optional[str]:
+    
+    def fetch_page(self, url: str, max_retries: int = None) -> Optional[str]:
         """Fetch a page using Scrapling with retries"""
         max_retries = max_retries or config.MAX_RETRIES
         
