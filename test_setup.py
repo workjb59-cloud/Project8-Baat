@@ -25,8 +25,8 @@ def test_imports():
         import pandas
         print("  ✓ pandas")
         
-        import scrapling
-        print("  ✓ scrapling")
+        import playwright
+        print("  ✓ playwright")
         
         from women_cat1.scraper import BoutiqaatScraper
         print("  ✓ BoutiqaatScraper")

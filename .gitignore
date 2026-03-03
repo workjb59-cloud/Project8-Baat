@@ -57,3 +57,6 @@ htmlcov/
 # Config files with secrets (if any)
 secrets.json
 debug_page.html
+debug_html_structure.py
+extract_json_data.py
+show_all_links.py

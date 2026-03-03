@@ -6,12 +6,12 @@ from urllib.parse import urljoin, urlparse
 import time
 from config import BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
 
+# Try to import Playwright for JavaScript rendering
 try:
-    from scrapling import Scraper as ScraplingClient
-    HAS_SCRAPLING = True
+    from playwright.async_api import async_playwright
+    HAS_PLAYWRIGHT = True
 except ImportError:
-    HAS_SCRAPLING = False
-    ScraplingClient = None
+    HAS_PLAYWRIGHT = False
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,17 +26,10 @@ class BoutiqaatScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
-        self.scrapling_client = None
-        self.has_scrapling = False
+        self.playwright_available = HAS_PLAYWRIGHT
         
-        if HAS_SCRAPLING:
-            try:
-                self.scrapling_client = ScraplingClient()
-                self.has_scrapling = True
-                logger.info("Scrapling initialized for JavaScript-heavy pages")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Scrapling: {str(e)}")
-                self.has_scrapling = False
+        if self.playwright_available:
+            logger.info("Playwright available for JavaScript rendering")
 
     def _make_request(self, url: str, retries: int = MAX_RETRIES) -> Optional[BeautifulSoup]:
         """Make HTTP request with retry logic"""
@@ -54,17 +47,26 @@ class BoutiqaatScraper:
                     return None
 
     def _make_request_with_js(self, url: str) -> Optional[BeautifulSoup]:
-        """Fetch page with JavaScript rendering using Scrapling"""
-        if not self.has_scrapling or not self.scrapling_client:
-            logger.warning("Scrapling not available, falling back to requests")
+        """Fetch page with JavaScript rendering using Playwright"""
+        if not self.playwright_available:
+            logger.warning("Playwright not available, falling back to requests")
             return self._make_request(url)
         
         try:
-            logger.info(f"Fetching with Scrapling (JS rendering): {url}")
-            html = self.scrapling_client.scrape(url)
-            return BeautifulSoup(html, 'html.parser')
+            import asyncio
+            from playwright.sync_api import sync_playwright
+            
+            logger.info(f"Fetching with Playwright (JS rendering): {url}")
+            
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                html = page.content()
+                browser.close()
+                return BeautifulSoup(html, 'html.parser')
         except Exception as e:
-            logger.warning(f"Scrapling failed for {url}: {str(e)}")
+            logger.warning(f"Playwright failed for {url}: {str(e)}")
             # Fallback to regular requests
             return self._make_request(url)
 
