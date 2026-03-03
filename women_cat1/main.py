@@ -5,9 +5,9 @@ import os
 import shutil
 from datetime import datetime
 
-from src.scraper import BoutiqaatScraper
-from src.s3_uploader import S3Uploader
-from src.excel_generator import ExcelGenerator
+from .scraper import BoutiqaatScraper
+from .s3_uploader import S3Uploader
+from .excel_generator import ExcelGenerator
 from config import TEMP_DIR, S3_EXCEL_PATH
 
 logging.basicConfig(

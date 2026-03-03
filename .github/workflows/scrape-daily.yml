@@ -36,16 +36,11 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+        S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
       run: |
         python -m women_cat1.main
     
-    - name: Upload logs to S3 on failure
-      if: failure()
-      run: |
-        aws s3 cp logs/ s3://${{ secrets.S3_BUCKET_NAME }}/boutiqaat-data/logs/ --recursive || true
-    
-    - name: Notify on completion
+    - name: Job summary
       if: always()
       run: |
         echo "Scraping job completed with status: ${{ job.status }}"

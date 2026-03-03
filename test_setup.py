@@ -25,16 +25,16 @@ def test_imports():
         import pandas
         print("  ✓ pandas")
         
-        from src.scraper import BoutiqaatScraper
+        from women_cat1.scraper import BoutiqaatScraper
         print("  ✓ BoutiqaatScraper")
         
-        from src.s3_uploader import S3Uploader
+        from women_cat1.s3_uploader import S3Uploader
         print("  ✓ S3Uploader")
         
-        from src.excel_generator import ExcelGenerator
+        from women_cat1.excel_generator import ExcelGenerator
         print("  ✓ ExcelGenerator")
         
-        from src.main import BoutiqaatDataPipeline
+        from women_cat1.main import BoutiqaatDataPipeline
         print("  ✓ BoutiqaatDataPipeline")
         
         print("✅ All imports successful!\n")
