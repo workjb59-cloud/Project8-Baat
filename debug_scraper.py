@@ -11,7 +11,7 @@ session.headers.update({
 })
 
 # Test category URL - products should be here
-test_url = 'https://www.boutiqaat.com/ar-bh/women/makeup/foundations/l/'
+test_url = 'https://www.boutiqaat.com/ar-kw/women/makeup/foundations/l/'
 print(f"Fetching: {test_url}\n")
 
 try:

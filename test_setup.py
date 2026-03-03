@@ -25,6 +25,9 @@ def test_imports():
         import pandas
         print("  ✓ pandas")
         
+        import scrapling
+        print("  ✓ scrapling")
+        
         from women_cat1.scraper import BoutiqaatScraper
         print("  ✓ BoutiqaatScraper")
         
@@ -76,7 +79,7 @@ def test_s3_connection():
     """Test S3 connection"""
     print("🔍 Testing S3 connection...")
     try:
-        from src.s3_uploader import S3Uploader
+        from women_cat1.s3_uploader import S3Uploader
         uploader = S3Uploader()
         
         if uploader.test_connection():

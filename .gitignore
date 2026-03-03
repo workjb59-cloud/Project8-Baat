@@ -56,3 +56,4 @@ htmlcov/
 
 # Config files with secrets (if any)
 secrets.json
+debug_page.html

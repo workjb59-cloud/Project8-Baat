@@ -6,6 +6,13 @@ from urllib.parse import urljoin, urlparse
 import time
 from config import BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
 
+try:
+    from scrapling import Scraper as ScraplingClient
+    HAS_SCRAPLING = True
+except ImportError:
+    HAS_SCRAPLING = False
+    ScraplingClient = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -19,6 +26,14 @@ class BoutiqaatScraper:
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
+        self.scrapling_client = None
+        if HAS_SCRAPLING:
+            try:
+                self.scrapling_client = ScraplingClient()
+                logger.info("Scrapling initialized for JavaScript-heavy pages")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Scrapling: {str(e)}")
+                HAS_SCRAPLING = False
 
     def _make_request(self, url: str, retries: int = MAX_RETRIES) -> Optional[BeautifulSoup]:
         """Make HTTP request with retry logic"""
@@ -34,6 +49,21 @@ class BoutiqaatScraper:
                 else:
                     logger.error(f"Failed to fetch {url} after {retries} attempts")
                     return None
+
+    def _make_request_with_js(self, url: str) -> Optional[BeautifulSoup]:
+        """Fetch page with JavaScript rendering using Scrapling"""
+        if not HAS_SCRAPLING or not self.scrapling_client:
+            logger.warning("Scrapling not available, falling back to requests")
+            return self._make_request(url)
+        
+        try:
+            logger.info(f"Fetching with Scrapling (JS rendering): {url}")
+            html = self.scrapling_client.scrape(url)
+            return BeautifulSoup(html, 'html.parser')
+        except Exception as e:
+            logger.warning(f"Scrapling failed for {url}: {str(e)}")
+            # Fallback to regular requests
+            return self._make_request(url)
 
     def get_categories(self) -> List[Dict[str, str]]:
         """Scrape main makeup categories from the main category page"""
@@ -147,7 +177,9 @@ class BoutiqaatScraper:
             # Build pagination URL
             page_url = f"{category_url}?p={page}" if '?' not in category_url else f"{category_url}&p={page}"
             logger.info(f"Fetching page {page}: {page_url}")
-            soup = self._make_request(page_url)
+            
+            # Use Scrapling for JS-heavy product pages
+            soup = self._make_request_with_js(page_url)
             
             if not soup:
                 break
@@ -341,7 +373,7 @@ class BoutiqaatScraper:
     def get_product_full_details(self, product_url: str) -> Optional[Dict]:
         """Scrape full details from product page"""
         logger.info(f"Fetching full details from {product_url}")
-        soup = self._make_request(product_url)
+        soup = self._make_request_with_js(product_url)
         
         if not soup:
             return None
