@@ -269,8 +269,9 @@ class BoutiqaatScraper:
         """Extract all products from a page without subcategory grouping"""
         products = []
         
-        # Only look for ACTUAL product links (containing /p/ for product page)
-        product_links = soup.find_all('a', href=lambda x: x and '/makeup/' in str(x) and '/p/' in str(x))
+        # Only look for ACTUAL product links (ending with /p/ for product page)
+        # Product URLs: /ar-kw/women/{product-name}/p/ (no /makeup/ in product URL)
+        product_links = soup.find_all('a', href=lambda x: x and '/p/' in str(x) and '/women/' in str(x))
         
         logger.info(f"Found {len(product_links)} potential product links")
         
@@ -284,15 +285,18 @@ class BoutiqaatScraper:
                 if not href or '/p/' not in href:
                     continue
                 
+                # Skip links that are not product links (e.g., /women/women/... or category pages)
+                if '/women/makeup/' in href and '/p/' not in href:
+                    continue
+                
                 # Get product name from link text
                 name = link.get_text(strip=True)
                 if not name or len(name) < 2:
                     continue
                 
-                # Get image from the link's container or sibling
+                # Get image from the link or its parent
                 img_elem = link.find('img')
                 if not img_elem:
-                    # Try to find image in parent container
                     parent = link.find_parent(['div', 'article', 'li'])
                     if parent:
                         img_elem = parent.find('img')
@@ -332,8 +336,9 @@ class BoutiqaatScraper:
         """Find and extract products from a container element"""
         products = []
         
-        # Look for actual product links (with /p/) in the container
-        product_links = container.find_all('a', href=lambda x: x and '/makeup/' in str(x) and '/p/' in str(x))
+        # Look for actual product links: /ar-kw/women/{product-name}/p/
+        # Product URLs do NOT contain /makeup/, they're directly under /women/
+        product_links = container.find_all('a', href=lambda x: x and '/p/' in str(x) and '/women/' in str(x))
         
         logger.debug(f"Found {len(product_links)} product links in container")
         
