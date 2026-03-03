@@ -27,13 +27,16 @@ class BoutiqaatScraper:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         self.scrapling_client = None
+        self.has_scrapling = False
+        
         if HAS_SCRAPLING:
             try:
                 self.scrapling_client = ScraplingClient()
+                self.has_scrapling = True
                 logger.info("Scrapling initialized for JavaScript-heavy pages")
             except Exception as e:
                 logger.warning(f"Failed to initialize Scrapling: {str(e)}")
-                HAS_SCRAPLING = False
+                self.has_scrapling = False
 
     def _make_request(self, url: str, retries: int = MAX_RETRIES) -> Optional[BeautifulSoup]:
         """Make HTTP request with retry logic"""
@@ -52,7 +55,7 @@ class BoutiqaatScraper:
 
     def _make_request_with_js(self, url: str) -> Optional[BeautifulSoup]:
         """Fetch page with JavaScript rendering using Scrapling"""
-        if not HAS_SCRAPLING or not self.scrapling_client:
+        if not self.has_scrapling or not self.scrapling_client:
             logger.warning("Scrapling not available, falling back to requests")
             return self._make_request(url)
         
