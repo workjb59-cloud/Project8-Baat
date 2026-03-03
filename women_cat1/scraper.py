@@ -83,8 +83,6 @@ class BoutiqaatScraper:
                 logger.info(f"  - {cat['name']}: {cat['url']}")
         
         return categories
-        
-        return categories
 
     def get_subcategories(self, category_url: str) -> List[Dict[str, str]]:
         """Scrape subcategories from a main category page"""
@@ -138,51 +136,36 @@ class BoutiqaatScraper:
                 logger.info(f"  - {sub['name']}: {sub['url']}")
         
         return subcategories
-        
-        logger.info(f"Found {len(subcategories)} subcategories")
-        return subcategories
 
-    def get_products(self, subcategory_url: str) -> List[Dict]:
-        """Scrape all products in a subcategory with pagination"""
-        logger.info(f"Fetching products from {subcategory_url}")
+    def get_products(self, category_url: str) -> List[Dict]:
+        """Scrape products from a category page, organized by subcategory"""
+        logger.info(f"Fetching products from {category_url}")
         all_products = []
         page = 1
         
         while True:
-            # Try both ?p= and page query param variations
-            page_url = f"{subcategory_url}?p={page}" if '?' not in subcategory_url else f"{subcategory_url}&p={page}"
+            # Build pagination URL
+            page_url = f"{category_url}?p={page}" if '?' not in category_url else f"{category_url}&p={page}"
+            logger.info(f"Fetching page {page}: {page_url}")
             soup = self._make_request(page_url)
             
             if not soup:
                 break
             
-            # Try multiple selectors
-            products = soup.find_all('div', class_='single-product-wrap')
-            if not products:
-                products = soup.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
-            if not products:
-                products = soup.find_all('article', class_=lambda x: x and 'product' in str(x).lower())
-            if not products:
-                products = soup.find_all('li', class_=lambda x: x and 'product' in str(x).lower())
+            # Extract products - will try to identify subcategories
+            page_products = self._extract_products_with_subcategories(soup)
             
-            if not products:
+            if page_products:
+                logger.info(f"Found {len(page_products)} products on page {page}")
+                all_products.extend(page_products)
+            else:
                 logger.warning(f"No products found on page {page}")
                 break
-            
-            logger.info(f"Found {len(products)} products on page {page}")
-            
-            for product in products:
-                try:
-                    product_data = self._extract_product_details(product)
-                    if product_data:
-                        all_products.append(product_data)
-                except Exception as e:
-                    logger.warning(f"Error extracting product details: {str(e)}")
-                    continue
             
             # Check if there's a next page
             next_button = soup.find('a', rel='next')
             if not next_button:
+                logger.info("No next page found")
                 break
             
             page += 1
@@ -190,6 +173,111 @@ class BoutiqaatScraper:
         
         logger.info(f"Found {len(all_products)} total products")
         return all_products
+    
+    def _extract_products_with_subcategories(self, soup) -> List[Dict]:
+        """Extract products from page while trying to identify subcategories"""
+        # First try to find products organized by subcategory sections
+        products = self._extract_by_sections(soup)
+        if products:
+            logger.info(f"Extracted {len(products)} products with subcategories")
+            return products
+        
+        # Fallback: extract all products without subcategory grouping
+        products = self._extract_all_products(soup)
+        if products:
+            logger.info(f"Extracted {len(products)} products (no subcategories found)")
+        
+        return products
+    
+    def _extract_by_sections(self, soup) -> List[Dict]:
+        """Extract products organized by subcategory sections/headers"""
+        products = []
+        
+        # Look for heading elements (h2, h3, h4) that indicate subcategories
+        headings = soup.find_all(['h2', 'h3', 'h4'])
+        
+        for heading in headings:
+            heading_text = heading.get_text(strip=True)
+            if not heading_text or len(heading_text) < 2:
+                continue
+            
+            # Find the next container with products
+            container = heading.find_next(['div', 'section', 'ul', 'ol'])
+            if not container:
+                continue
+            
+            # Extract products from this container
+            section_products = self._find_products_in_container(container)
+            
+            if section_products:
+                logger.info(f"Section '{heading_text}': {len(section_products)} products")
+                
+                # Add subcategory info to each product
+                for product_data in section_products:
+                    if product_data:
+                        product_data['subcategory'] = heading_text
+                        products.append(product_data)
+        
+        return products
+    
+    def _extract_all_products(self, soup) -> List[Dict]:
+        """Extract all products from a page without subcategory grouping"""
+        products = []
+        product_elements = []
+        
+        # Strategy 1: div.single-product-wrap
+        product_elements = soup.find_all('div', class_='single-product-wrap')
+        if product_elements:
+            logger.debug(f"Strategy 1 (single-product-wrap): found {len(product_elements)}")
+        
+        # Strategy 2: Any div with 'product' in class
+        if not product_elements:
+            product_elements = soup.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
+            if product_elements:
+                logger.debug(f"Strategy 2 (div with product): found {len(product_elements)}")
+        
+        # Strategy 3: article elements
+        if not product_elements:
+            product_elements = soup.find_all('article')
+            if product_elements:
+                logger.debug(f"Strategy 3 (article): found {len(product_elements)}")
+        
+        # Strategy 4: Elements with links and images
+        if not product_elements:
+            all_elems = soup.find_all(['div', 'article', 'li'])
+            product_elements = [e for e in all_elems if e.find('a', href=True) and e.find('img')]
+            if product_elements:
+                logger.debug(f"Strategy 4 (link+image): found {len(product_elements)}")
+        
+        for elem in product_elements:
+            product_data = self._extract_product_details(elem)
+            if product_data:
+                products.append(product_data)
+        
+        return products
+    
+    def _find_products_in_container(self, container) -> List[Dict]:
+        """Find and extract products from a container element"""
+        products = []
+        
+        # Look for product elements within container
+        product_elems = container.find_all('div', class_='single-product-wrap')
+        
+        if not product_elems:
+            product_elems = container.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
+        
+        if not product_elems:
+            product_elems = container.find_all('article')
+        
+        if not product_elems:
+            product_elems = container.find_all('li')
+        
+        for elem in product_elems:
+            product_data = self._extract_product_details(elem)
+            if product_data:
+                products.append(product_data)
+        
+        return products
 
     def _extract_product_details(self, product_elem) -> Optional[Dict]:
         """Extract details from a single product element"""

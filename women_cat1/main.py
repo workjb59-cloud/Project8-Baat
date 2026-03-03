@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, List
-from collections import defaultdict
 import os
 import shutil
 from datetime import datetime
@@ -64,55 +63,56 @@ class BoutiqaatDataPipeline:
                 logger.info("Cleaned up temporary files")
 
     def _process_category(self, category: Dict):
-        """Process a single category and all its subcategories"""
+        """Process a single category and extract products by subcategory"""
         category_name = category['name']
         category_url = category['url']
         
         logger.info(f"\n--- Processing Category: {category_name} ---")
         
-        # Get subcategories
-        subcategories = self.scraper.get_subcategories(category_url)
-        if not subcategories:
-            logger.warning(f"No subcategories found for {category_name}")
+        # Get the category page to extract products and subcategories
+        products = self.scraper.get_products(category_url)
+        
+        if not products:
+            logger.warning(f"No products found for {category_name}")
             return
         
-        # Organize products by subcategory
+        logger.info(f"Found {len(products)} total products in category")
+        
+        # Organize products by their subcategory (extracted from product details or page structure)
+        from collections import defaultdict
         subcategories_data = defaultdict(list)
         
-        for subcategory in subcategories:
-            subcategory_name = subcategory['name']
-            subcategory_url = subcategory['url']
-            
-            logger.info(f"  Processing Subcategory: {subcategory_name}")
-            
-            # Get products in subcategory
-            products = self.scraper.get_products(subcategory_url)
-            
-            if not products:
-                logger.warning(f"    No products found")
-                continue
-            
-            logger.info(f"    Found {len(products)} products")
-            
-            # Process each product
-            for idx, product in enumerate(products, 1):
-                logger.info(f"    [{idx}/{len(products)}] Processing: {product.get('name', 'Unknown')}")
-                
-                # Get full product details
-                full_details = self.scraper.get_product_full_details(product['url'])
-                if full_details:
-                    product.update(full_details)
-                
-                # Download and upload image
-                if product.get('image_url'):
-                    s3_image_path = self._upload_product_image(product)
-                    product['s3_image_path'] = s3_image_path
-                else:
-                    product['s3_image_path'] = 'No image available'
-                
-                subcategories_data[subcategory_name].append(product)
+        # If products don't have subcategory info, group them under category name
+        for product in products:
+            # Try to get subcategory from product or use category name as default
+            subcategory = product.get('subcategory', category_name)
+            subcategories_data[subcategory].append(product)
         
-        # Generate Excel file
+        # Process each product to get full details and upload images
+        for subcategory_name, products_in_sub in subcategories_data.items():
+            logger.info(f"  Processing Subcategory: {subcategory_name} ({len(products_in_sub)} products)")
+            
+            for idx, product in enumerate(products_in_sub, 1):
+                logger.info(f"    [{idx}/{len(products_in_sub)}] Processing: {product.get('name', 'Unknown')}")
+                
+                try:
+                    # Get full product details
+                    full_details = self.scraper.get_product_full_details(product['url'])
+                    if full_details:
+                        product.update(full_details)
+                    
+                    # Download and upload image
+                    if product.get('image_url'):
+                        s3_image_path = self._upload_product_image(product)
+                        product['s3_image_path'] = s3_image_path
+                    else:
+                        product['s3_image_path'] = 'No image available'
+                
+                except Exception as e:
+                    logger.warning(f"    Error processing product: {str(e)}")
+                    continue
+        
+        # Generate Excel file with subcategories as sheets
         if subcategories_data:
             excel_file = self.excel_generator.create_category_workbook(
                 category_name,
