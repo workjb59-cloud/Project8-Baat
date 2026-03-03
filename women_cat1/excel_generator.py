@@ -5,6 +5,7 @@ from openpyxl.utils import get_column_letter
 from typing import List, Dict, Optional
 import os
 from pathlib import Path
+import re
 from config import TEMP_DIR, EXCEL_DATE_STR
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,21 @@ class ExcelGenerator:
     def __init__(self):
         # Create temp directory if it doesn't exist
         Path(TEMP_DIR).mkdir(parents=True, exist_ok=True)
+
+    def _extract_price_value(self, price_str: str) -> float:
+        """Extract numeric price value from strings like '5.600KWD' or '10.50 AED'"""
+        if not price_str or price_str == 'N/A':
+            return 0.0
+        
+        # Remove currency codes and non-numeric characters (except decimal point)
+        # Use regex to find all numbers and decimal points
+        match = re.search(r'[\d.]+', str(price_str))
+        if match:
+            try:
+                return float(match.group())
+            except ValueError:
+                return 0.0
+        return 0.0
 
     def create_category_workbook(
         self, 
@@ -148,7 +164,7 @@ class ExcelGenerator:
             ws.cell(row=row_num, column=3).value = ', '.join(sorted(brands)[:5])  # Max 5 brands
             
             # Calculate average price
-            prices = [float(p.get('price', '0').split()[0]) for p in products if p.get('price')]
+            prices = [self._extract_price_value(p.get('price', '0')) for p in products if p.get('price')]
             avg_price = sum(prices) / len(prices) if prices else 0
             ws.cell(row=row_num, column=4).value = f"{avg_price:.2f}"
             
