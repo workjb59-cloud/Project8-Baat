@@ -36,8 +36,8 @@ class BoutiqaatScraper:
                     return None
 
     def get_categories(self) -> List[Dict[str, str]]:
-        """Scrape main makeup categories"""
-        logger.info("Fetching categories...")
+        """Scrape main makeup categories from the main category page"""
+        logger.info("Fetching categories from /ar-kw/women/makeup/c/...")
         soup = self._make_request(f'{self.base_url}/ar-kw/women/makeup/c/')
         
         if not soup:
@@ -46,62 +46,48 @@ class BoutiqaatScraper:
         categories = []
         seen_urls = set()
         
-        # Try multiple selector strategies
-        selectors = [
-            ('div', {'class': 'slick-slide'}),
-            ('div', {'class_': lambda x: x and 'category' in x.lower()}),
-            ('a', {'href': lambda x: x and '/makeup/' in x}),
-        ]
+        # Look for all links in the main category page
+        # Categories follow pattern: /ar-kw/women/makeup/{category-name}/l/
+        all_links = soup.find_all('a', href=True)
+        logger.info(f"Found {len(all_links)} total links on page")
         
-        for tag, attrs in selectors:
-            elements = soup.find_all(tag, attrs=attrs)
-            logger.info(f"Trying selector {tag} with {attrs}: found {len(elements)}")
+        for link in all_links:
+            href = link.get('href', '')
             
-            if tag == 'div' and 'class' in attrs:
-                # Handle slick-slide approach
-                for elem in elements:
-                    if 'slick-cloned' not in elem.get('class', []):
-                        link = elem.find('a', href=True)
-                        if link and '/makeup/' in link.get('href', ''):
-                            href = link['href']
-                            if href not in seen_urls:
-                                seen_urls.add(href)
-                                text_elem = elem.find('span', class_='font-width-dec')
-                                if text_elem:
-                                    category_name = text_elem.get_text(strip=True)
-                                    full_url = urljoin(self.base_url, href)
-                                    categories.append({
-                                        'name': category_name,
-                                        'url': full_url,
-                                        'path': href
-                                    })
-            elif tag == 'a':
-                # Handle direct link approach
-                for link in elements:
-                    href = link.get('href', '')
-                    if href and '/makeup/' in href and href not in seen_urls:
-                        seen_urls.add(href)
+            # Match pattern: /makeup/{category}/l/ but not /makeup/c/
+            if href and '/makeup/' in href and '/l/' in href and '/makeup/c' not in href:
+                if href not in seen_urls:
+                    seen_urls.add(href)
+                    
+                    # Extract category name from path
+                    # e.g., /ar-kw/women/makeup/face/l/ -> face
+                    path_parts = href.strip('/').split('/')
+                    if len(path_parts) >= 2:
+                        # The part before /l/ is the category name
+                        category_name = path_parts[-2]
+                        
+                        # Get display text from link
                         text = link.get_text(strip=True)
-                        if text:
+                        
+                        if category_name and len(category_name) > 1:
                             full_url = urljoin(self.base_url, href)
                             categories.append({
-                                'name': text,
+                                'name': text if text and len(text) > 0 else category_name,
                                 'url': full_url,
                                 'path': href
                             })
-            
-            if categories:
-                break
         
-        logger.info(f"Found {len(categories)} categories")
+        logger.info(f"Found {len(categories)} main categories")
         if categories:
-            for cat in categories[:3]:
-                logger.info(f"  - {cat['name']}")
+            for cat in categories[:5]:
+                logger.info(f"  - {cat['name']}: {cat['url']}")
+        
+        return categories
         
         return categories
 
     def get_subcategories(self, category_url: str) -> List[Dict[str, str]]:
-        """Scrape subcategories for a given category"""
+        """Scrape subcategories from a main category page"""
         logger.info(f"Fetching subcategories from {category_url}")
         soup = self._make_request(category_url)
         
@@ -111,43 +97,46 @@ class BoutiqaatScraper:
         subcategories = []
         seen_urls = set()
         
-        # Try multiple selector strategies
-        slick_slides = soup.find_all('div', class_='slick-slide')
+        # Extract main category name from URL (before calling this)
+        path_parts = category_url.strip('/').split('/')
+        main_category = path_parts[-2] if len(path_parts) >= 2 else 'unknown'
         
-        for slide in slick_slides:
-            if 'slick-cloned' not in slide.get('class', []):
-                link = slide.find('a', href=True)
-                if link and '/makeup/' in link.get('href', ''):
-                    href = link['href']
-                    if href not in seen_urls:
+        # Look for all links with pattern /makeup/{subcategory}/l/
+        # excluding the main category page itself
+        all_links = soup.find_all('a', href=True)
+        logger.info(f"Scanning {len(all_links)} links for subcategories")
+        
+        for link in all_links:
+            href = link.get('href', '')
+            
+            # Match pattern: /makeup/{subcategory}/l/ 
+            # but exclude /makeup/c/ and the main category page itself
+            if (href and '/makeup/' in href and '/l/' in href and 
+                '/makeup/c' not in href and href not in seen_urls):
+                
+                # Extract the subcategory name
+                path_parts = href.strip('/').split('/')
+                if len(path_parts) >= 2:
+                    subcategory_name = path_parts[-2]
+                    
+                    # Skip if it's the main category page itself
+                    if subcategory_name != main_category:
                         seen_urls.add(href)
-                        text_elem = slide.find('span', class_='font-width-dec')
-                        if text_elem:
-                            sub_name = text_elem.get_text(strip=True)
+                        text = link.get_text(strip=True)
+                        
+                        if subcategory_name and len(subcategory_name) > 1:
                             full_url = urljoin(self.base_url, href)
                             subcategories.append({
-                                'name': sub_name,
+                                'name': text if text and len(text) > 0 else subcategory_name,
                                 'url': full_url,
                                 'path': href
                             })
         
-        # Fallback: if no slick-slides found, try direct links
-        if not subcategories:
-            links = soup.find_all('a', href=lambda x: x and '/p/' in x)
-            for link in links[:10]:
-                href = link.get('href', '')
-                if href not in seen_urls:
-                    text = link.get_text(strip=True)
-                    if text and len(text) > 0:
-                        seen_urls.add(href)
-                        full_url = urljoin(self.base_url, href)
-                        subcategories.append({
-                            'name': text,
-                            'url': full_url,
-                            'path': href
-                        })
-        
         logger.info(f"Found {len(subcategories)} subcategories")
+        if subcategories:
+            for sub in subcategories[:5]:
+                logger.info(f"  - {sub['name']}: {sub['url']}")
+        
         return subcategories
         
         logger.info(f"Found {len(subcategories)} subcategories")
@@ -160,7 +149,8 @@ class BoutiqaatScraper:
         page = 1
         
         while True:
-            page_url = f"{subcategory_url}?p={page}"
+            # Try both ?p= and page query param variations
+            page_url = f"{subcategory_url}?p={page}" if '?' not in subcategory_url else f"{subcategory_url}&p={page}"
             soup = self._make_request(page_url)
             
             if not soup:
@@ -169,9 +159,11 @@ class BoutiqaatScraper:
             # Try multiple selectors
             products = soup.find_all('div', class_='single-product-wrap')
             if not products:
-                products = soup.find_all('div', class_=lambda x: x and 'product' in x.lower())
+                products = soup.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
             if not products:
-                products = soup.find_all('article', class_=lambda x: x and 'product' in x.lower())
+                products = soup.find_all('article', class_=lambda x: x and 'product' in str(x).lower())
+            if not products:
+                products = soup.find_all('li', class_=lambda x: x and 'product' in str(x).lower())
             
             if not products:
                 logger.warning(f"No products found on page {page}")
