@@ -44,28 +44,60 @@ class BoutiqaatScraper:
             return []
 
         categories = []
-        slick_slides = soup.find_all('div', class_='slick-slide')
-        
-        # Filter to get only main categories (not cloned)
         seen_urls = set()
-        for slide in slick_slides:
-            if 'slick-cloned' not in slide.get('class', []):
-                link = slide.find('a', href=True)
-                if link and '/makeup/' in link['href']:
-                    href = link['href']
-                    if href not in seen_urls:
+        
+        # Try multiple selector strategies
+        selectors = [
+            ('div', {'class': 'slick-slide'}),
+            ('div', {'class_': lambda x: x and 'category' in x.lower()}),
+            ('a', {'href': lambda x: x and '/makeup/' in x}),
+        ]
+        
+        for tag, attrs in selectors:
+            elements = soup.find_all(tag, attrs=attrs)
+            logger.info(f"Trying selector {tag} with {attrs}: found {len(elements)}")
+            
+            if tag == 'div' and 'class' in attrs:
+                # Handle slick-slide approach
+                for elem in elements:
+                    if 'slick-cloned' not in elem.get('class', []):
+                        link = elem.find('a', href=True)
+                        if link and '/makeup/' in link.get('href', ''):
+                            href = link['href']
+                            if href not in seen_urls:
+                                seen_urls.add(href)
+                                text_elem = elem.find('span', class_='font-width-dec')
+                                if text_elem:
+                                    category_name = text_elem.get_text(strip=True)
+                                    full_url = urljoin(self.base_url, href)
+                                    categories.append({
+                                        'name': category_name,
+                                        'url': full_url,
+                                        'path': href
+                                    })
+            elif tag == 'a':
+                # Handle direct link approach
+                for link in elements:
+                    href = link.get('href', '')
+                    if href and '/makeup/' in href and href not in seen_urls:
                         seen_urls.add(href)
-                        text_elem = slide.find('span', class_='font-width-dec')
-                        if text_elem:
-                            category_name = text_elem.get_text(strip=True)
+                        text = link.get_text(strip=True)
+                        if text:
                             full_url = urljoin(self.base_url, href)
                             categories.append({
-                                'name': category_name,
+                                'name': text,
                                 'url': full_url,
                                 'path': href
                             })
+            
+            if categories:
+                break
         
         logger.info(f"Found {len(categories)} categories")
+        if categories:
+            for cat in categories[:3]:
+                logger.info(f"  - {cat['name']}")
+        
         return categories
 
     def get_subcategories(self, category_url: str) -> List[Dict[str, str]]:
@@ -77,13 +109,15 @@ class BoutiqaatScraper:
             return []
 
         subcategories = []
+        seen_urls = set()
+        
+        # Try multiple selector strategies
         slick_slides = soup.find_all('div', class_='slick-slide')
         
-        seen_urls = set()
         for slide in slick_slides:
             if 'slick-cloned' not in slide.get('class', []):
                 link = slide.find('a', href=True)
-                if link and '/makeup/' in link['href']:
+                if link and '/makeup/' in link.get('href', ''):
                     href = link['href']
                     if href not in seen_urls:
                         seen_urls.add(href)
@@ -96,6 +130,25 @@ class BoutiqaatScraper:
                                 'url': full_url,
                                 'path': href
                             })
+        
+        # Fallback: if no slick-slides found, try direct links
+        if not subcategories:
+            links = soup.find_all('a', href=lambda x: x and '/p/' in x)
+            for link in links[:10]:
+                href = link.get('href', '')
+                if href not in seen_urls:
+                    text = link.get_text(strip=True)
+                    if text and len(text) > 0:
+                        seen_urls.add(href)
+                        full_url = urljoin(self.base_url, href)
+                        subcategories.append({
+                            'name': text,
+                            'url': full_url,
+                            'path': href
+                        })
+        
+        logger.info(f"Found {len(subcategories)} subcategories")
+        return subcategories
         
         logger.info(f"Found {len(subcategories)} subcategories")
         return subcategories
@@ -113,10 +166,18 @@ class BoutiqaatScraper:
             if not soup:
                 break
             
+            # Try multiple selectors
             products = soup.find_all('div', class_='single-product-wrap')
+            if not products:
+                products = soup.find_all('div', class_=lambda x: x and 'product' in x.lower())
+            if not products:
+                products = soup.find_all('article', class_=lambda x: x and 'product' in x.lower())
             
             if not products:
+                logger.warning(f"No products found on page {page}")
                 break
+            
+            logger.info(f"Found {len(products)} products on page {page}")
             
             for product in products:
                 try:
@@ -135,41 +196,52 @@ class BoutiqaatScraper:
             page += 1
             time.sleep(1)  # Be respectful to the server
         
-        logger.info(f"Found {len(all_products)} products")
+        logger.info(f"Found {len(all_products)} total products")
         return all_products
 
     def _extract_product_details(self, product_elem) -> Optional[Dict]:
         """Extract details from a single product element"""
         try:
-            # Product name
+            # Product name - try multiple selectors
             name_elem = product_elem.find('span', class_='product-name-plp-h3')
+            if not name_elem:
+                name_elem = product_elem.find('h2') or product_elem.find('h3')
+            if not name_elem:
+                name_elem = product_elem.find(class_=lambda x: x and 'name' in x.lower())
             name = name_elem.get_text(strip=True) if name_elem else 'Unknown'
             
-            # Brand
+            # Brand - try multiple selectors
             brand_elem = product_elem.find('span', class_='brand-name')
+            if not brand_elem:
+                brand_elem = product_elem.find(class_=lambda x: x and 'brand' in x.lower())
             brand = brand_elem.get_text(strip=True) if brand_elem else 'Unknown'
             
-            # Price
+            # Price - try multiple selectors
             price_elem = product_elem.find('span', class_='new-price')
+            if not price_elem:
+                price_elem = product_elem.find(class_=lambda x: x and 'price' in x.lower())
             price = price_elem.get_text(strip=True) if price_elem else 'N/A'
             
-            # Product URL
+            # Product URL - try multiple selectors
             link_elem = product_elem.find('a', {'class': 'product-image'})
             if not link_elem:
                 link_elem = product_elem.find('a', href=True)
-            product_url = urljoin(self.base_url, link_elem['href']) if link_elem else None
+            product_url = urljoin(self.base_url, link_elem['href']) if link_elem and link_elem.get('href') else None
             
-            # Image URL
+            # Image URL - try multiple selectors
             img_elem = product_elem.find('img', class_='img-fluid')
-            image_url = img_elem.get('src') if img_elem else None
+            if not img_elem:
+                img_elem = product_elem.find('img')
+            image_url = img_elem.get('src') or img_elem.get('data-src') if img_elem else None
             
             # Color options
-            color_text_elem = product_elem.find('span')
             colors = 'N/A'
-            if color_text_elem:
-                text = color_text_elem.get_text(strip=True)
-                if 'ألوان' in text or 'لون' in text:
+            all_spans = product_elem.find_all('span')
+            for span in all_spans:
+                text = span.get_text(strip=True)
+                if 'ألوان' in text or 'لون' in text or 'colors' in text.lower():
                     colors = text
+                    break
             
             if not product_url:
                 return None
