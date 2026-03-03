@@ -53,7 +53,6 @@ class BoutiqaatScraper:
             return self._make_request(url)
         
         try:
-            import asyncio
             from playwright.sync_api import sync_playwright
             
             logger.info(f"Fetching with Playwright (JS rendering): {url}")
@@ -61,7 +60,24 @@ class BoutiqaatScraper:
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
-                page.goto(url, wait_until='networkidle', timeout=30000)
+                
+                # Navigate to the page
+                page.goto(url, wait_until='load', timeout=30000)
+                
+                # Wait for network idle
+                try:
+                    page.wait_for_load_state('networkidle', timeout=10000)
+                except:
+                    logger.warning(f"Network idle timeout for {url}, continuing anyway")
+                
+                # Scroll down to load lazy-loaded content
+                logger.debug("Scrolling page to load lazy-loaded content...")
+                page.evaluate('window.scrollBy(0, document.body.scrollHeight)')
+                
+                # Wait a bit for any additional content to load
+                import time
+                time.sleep(2)
+                
                 html = page.content()
                 browser.close()
                 return BeautifulSoup(html, 'html.parser')
@@ -73,7 +89,7 @@ class BoutiqaatScraper:
     def get_categories(self) -> List[Dict[str, str]]:
         """Scrape main makeup categories from the main category page"""
         logger.info("Fetching categories from /ar-kw/women/makeup/c/...")
-        soup = self._make_request(f'{self.base_url}/ar-kw/women/makeup/c/')
+        soup = self._make_request_with_js(f'{self.base_url}/ar-kw/women/makeup/c/')
         
         if not soup:
             return []
