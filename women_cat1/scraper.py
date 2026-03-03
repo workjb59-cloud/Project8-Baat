@@ -268,59 +268,110 @@ class BoutiqaatScraper:
     def _extract_all_products(self, soup) -> List[Dict]:
         """Extract all products from a page without subcategory grouping"""
         products = []
-        product_elements = []
         
-        # Strategy 1: div.single-product-wrap
-        product_elements = soup.find_all('div', class_='single-product-wrap')
-        if product_elements:
-            logger.debug(f"Strategy 1 (single-product-wrap): found {len(product_elements)}")
+        # Only look for ACTUAL product links (containing /p/ for product page)
+        product_links = soup.find_all('a', href=lambda x: x and '/makeup/' in str(x) and '/p/' in str(x))
         
-        # Strategy 2: Any div with 'product' in class
-        if not product_elements:
-            product_elements = soup.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
-            if product_elements:
-                logger.debug(f"Strategy 2 (div with product): found {len(product_elements)}")
+        logger.info(f"Found {len(product_links)} potential product links")
         
-        # Strategy 3: article elements
-        if not product_elements:
-            product_elements = soup.find_all('article')
-            if product_elements:
-                logger.debug(f"Strategy 3 (article): found {len(product_elements)}")
+        if not product_links:
+            logger.warning("No product links found with /p/ pattern")
+            return products
         
-        # Strategy 4: Elements with links and images
-        if not product_elements:
-            all_elems = soup.find_all(['div', 'article', 'li'])
-            product_elements = [e for e in all_elems if e.find('a', href=True) and e.find('img')]
-            if product_elements:
-                logger.debug(f"Strategy 4 (link+image): found {len(product_elements)}")
+        for link in product_links:
+            try:
+                href = link.get('href', '')
+                if not href or '/p/' not in href:
+                    continue
+                
+                # Get product name from link text
+                name = link.get_text(strip=True)
+                if not name or len(name) < 2:
+                    continue
+                
+                # Get image from the link's container or sibling
+                img_elem = link.find('img')
+                if not img_elem:
+                    # Try to find image in parent container
+                    parent = link.find_parent(['div', 'article', 'li'])
+                    if parent:
+                        img_elem = parent.find('img')
+                
+                image_url = None
+                if img_elem:
+                    image_url = img_elem.get('src') or img_elem.get('data-src')
+                    # Skip placeholder images
+                    if image_url and ('loader' in image_url.lower() or 'placeholder' in image_url.lower()):
+                        image_url = None
+                
+                # Get price if available
+                price = 'N/A'
+                parent = link.find_parent(['div', 'article', 'li']) or link
+                price_elem = parent.find(class_=lambda x: x and 'price' in str(x).lower())
+                if price_elem:
+                    price = price_elem.get_text(strip=True)
+                
+                full_url = urljoin(self.base_url, href)
+                
+                products.append({
+                    'name': name,
+                    'url': full_url,
+                    'image_url': image_url,
+                    'price': price,
+                    'brand': 'Unknown'
+                })
+                
+            except Exception as e:
+                logger.debug(f"Error processing product link: {str(e)}")
+                continue
         
-        for elem in product_elements:
-            product_data = self._extract_product_details(elem)
-            if product_data:
-                products.append(product_data)
-        
+        logger.info(f"Extracted {len(products)} valid products")
         return products
     
     def _find_products_in_container(self, container) -> List[Dict]:
         """Find and extract products from a container element"""
         products = []
         
-        # Look for product elements within container
-        product_elems = container.find_all('div', class_='single-product-wrap')
+        # Look for actual product links (with /p/) in the container
+        product_links = container.find_all('a', href=lambda x: x and '/makeup/' in str(x) and '/p/' in str(x))
         
-        if not product_elems:
-            product_elems = container.find_all('div', class_=lambda x: x and 'product' in str(x).lower())
+        logger.debug(f"Found {len(product_links)} product links in container")
         
-        if not product_elems:
-            product_elems = container.find_all('article')
-        
-        if not product_elems:
-            product_elems = container.find_all('li')
-        
-        for elem in product_elems:
-            product_data = self._extract_product_details(elem)
-            if product_data:
-                products.append(product_data)
+        for link in product_links:
+            try:
+                href = link.get('href', '')
+                if not href or '/p/' not in href:
+                    continue
+                
+                name = link.get_text(strip=True)
+                if not name or len(name) < 2:
+                    continue
+                
+                # Get image
+                img_elem = link.find('img')
+                if not img_elem:
+                    parent = link.find_parent(['div', 'article', 'li'])
+                    if parent:
+                        img_elem = parent.find('img')
+                
+                image_url = None
+                if img_elem:
+                    image_url = img_elem.get('src') or img_elem.get('data-src')
+                    if image_url and ('loader' in image_url.lower() or 'placeholder' in image_url.lower()):
+                        image_url = None
+                
+                full_url = urljoin(self.base_url, href)
+                
+                products.append({
+                    'name': name,
+                    'url': full_url,
+                    'image_url': image_url,
+                    'price': 'N/A',
+                    'brand': 'Unknown'
+                })
+            except Exception as e:
+                logger.debug(f"Error processing container product: {str(e)}")
+                continue
         
         return products
 
