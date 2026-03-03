@@ -4,6 +4,7 @@ import requests
 from io import BytesIO
 from typing import Optional
 import os
+from urllib.parse import urlparse
 from config import (
     AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET,
     AWS_REGION, S3_IMAGES_PATH, TEMP_DIR
@@ -29,16 +30,47 @@ class S3Uploader:
         # Create temp directory if it doesn't exist
         Path(TEMP_DIR).mkdir(parents=True, exist_ok=True)
 
+    def _is_valid_url(self, url: str) -> bool:
+        """Check if URL is valid and has a proper scheme"""
+        if not url:
+            return False
+        try:
+            result = urlparse(url)
+            return all([result.scheme, result.netloc])
+        except:
+            return False
+
     def upload_image_from_url(self, image_url: str, filename: str, s3_path: str = S3_IMAGES_PATH) -> Optional[str]:
         """Download image from URL and upload to S3"""
         if not image_url:
             logger.warning(f"Empty image URL for {filename}")
             return None
         
+        # Validate URL has proper scheme
+        if not self._is_valid_url(image_url):
+            logger.error(f"Invalid image URL for {filename}: {image_url}")
+            return None
+        
         try:
             logger.info(f"Downloading image from {image_url}")
             response = requests.get(image_url, timeout=30)
             response.raise_for_status()
+            
+            # Upload to S3
+            s3_key = f"{s3_path}/{filename}"
+            self.s3_client.put_object(
+                Bucket=self.bucket_name,
+                Key=s3_key,
+                Body=response.content,
+                ContentType='image/jpeg'
+            )
+            
+            logger.info(f"Uploaded image to s3://{self.bucket_name}/{s3_key}")
+            return s3_key
+        
+        except Exception as e:
+            logger.error(f"Error uploading image {filename}: {str(e)}")
+            return None
             
             # Upload to S3
             s3_key = f"{s3_path}/{filename}"

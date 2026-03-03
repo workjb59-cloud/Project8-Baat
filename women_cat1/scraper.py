@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 from typing import List, Dict, Optional
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, parse_qs, unquote
 import time
 from config import BASE_URL, REQUEST_TIMEOUT, MAX_RETRIES, RETRY_DELAY
 
@@ -30,6 +30,42 @@ class BoutiqaatScraper:
         
         if self.playwright_available:
             logger.info("Playwright available for JavaScript rendering")
+
+    def _clean_url(self, url: str) -> str:
+        """Clean up URLs by removing double slashes in path"""
+        if not url:
+            return url
+        # Replace multiple consecutive slashes with single slash (except for :// protocol)
+        import re
+        # Keep the protocol part, then fix double slashes in the path
+        if '://' in url:
+            parts = url.split('://', 1)
+            protocol = parts[0] + '://'
+            path = parts[1]
+            # Remove consecutive slashes
+            path = re.sub(r'/+', '/', path)
+            return protocol + path
+        return url
+
+    def _extract_image_url(self, image_url: str) -> str:
+        """Extract actual image URL from Next.js optimization URLs"""
+        if not image_url:
+            return image_url
+        
+        # Check if it's a Next.js image optimization URL
+        if '/_next/image/' in image_url:
+            try:
+                # Extract the 'url' parameter
+                if '?url=' in image_url:
+                    # The URL parameter is URL-encoded
+                    encoded_url = image_url.split('?url=')[1].split('&')[0]
+                    actual_url = unquote(encoded_url)
+                    logger.debug(f"Extracted image URL from Next.js: {actual_url}")
+                    return actual_url
+            except Exception as e:
+                logger.warning(f"Failed to extract Next.js image URL: {str(e)}")
+        
+        return image_url
 
     def _make_request(self, url: str, retries: int = MAX_RETRIES) -> Optional[BeautifulSoup]:
         """Make HTTP request with retry logic"""
@@ -325,6 +361,9 @@ class BoutiqaatScraper:
                     # Skip placeholder images
                     if image_url and ('loader' in image_url.lower() or 'placeholder' in image_url.lower()):
                         image_url = None
+                    # Extract actual URL from Next.js optimization URLs
+                    if image_url:
+                        image_url = self._extract_image_url(image_url)
                 
                 # Get price if available
                 price = 'N/A'
@@ -334,6 +373,7 @@ class BoutiqaatScraper:
                     price = price_elem.get_text(strip=True)
                 
                 full_url = urljoin(self.base_url, href)
+                full_url = self._clean_url(full_url)  # Clean up double slashes
                 
                 products.append({
                     'name': name,
@@ -382,8 +422,12 @@ class BoutiqaatScraper:
                     image_url = img_elem.get('src') or img_elem.get('data-src')
                     if image_url and ('loader' in image_url.lower() or 'placeholder' in image_url.lower()):
                         image_url = None
+                    # Extract actual URL from Next.js optimization URLs
+                    if image_url:
+                        image_url = self._extract_image_url(image_url)
                 
                 full_url = urljoin(self.base_url, href)
+                full_url = self._clean_url(full_url)  # Clean up double slashes
                 
                 products.append({
                     'name': name,
@@ -426,12 +470,16 @@ class BoutiqaatScraper:
             if not link_elem:
                 link_elem = product_elem.find('a', href=True)
             product_url = urljoin(self.base_url, link_elem['href']) if link_elem and link_elem.get('href') else None
+            if product_url:
+                product_url = self._clean_url(product_url)
             
             # Image URL - try multiple selectors
             img_elem = product_elem.find('img', class_='img-fluid')
             if not img_elem:
                 img_elem = product_elem.find('img')
             image_url = img_elem.get('src') or img_elem.get('data-src') if img_elem else None
+            if image_url:
+                image_url = self._extract_image_url(image_url)
             
             # Color options
             colors = 'N/A'
@@ -459,6 +507,8 @@ class BoutiqaatScraper:
 
     def get_product_full_details(self, product_url: str) -> Optional[Dict]:
         """Scrape full details from product page"""
+        # Clean the URL first
+        product_url = self._clean_url(product_url)
         logger.info(f"Fetching full details from {product_url}")
         soup = self._make_request_with_js(product_url)
         
@@ -500,9 +550,11 @@ class BoutiqaatScraper:
             sku_elem = soup.find('span', class_='attr-level-val')
             sku = sku_elem.get_text(strip=True) if sku_elem else 'N/A'
             
-            # Product image (from details page)
+            # Product image (from details page) - extract from Next.js URLs
             img_elem = soup.find('img', class_='img-fluid')
             main_image = img_elem.get('src') if img_elem else None
+            if main_image:
+                main_image = self._extract_image_url(main_image)
             
             return {
                 'name': name,
