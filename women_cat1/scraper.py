@@ -84,31 +84,41 @@ class BoutiqaatScraper:
         all_links = soup.find_all('a', href=True)
         logger.info(f"Found {len(all_links)} total links on page")
         
+        # Debug: Check a few links to see patterns
+        debug_count = 0
+        for link in all_links[:20]:
+            href = link.get('href', '')
+            if debug_count < 5:
+                logger.debug(f"Link {debug_count}: {href}")
+                debug_count += 1
+        
         for link in all_links:
             href = link.get('href', '')
             
             # Match pattern: /makeup/{category}/l/ but not /makeup/c/
             if href and '/makeup/' in href and '/l/' in href and '/makeup/c' not in href:
-                if href not in seen_urls:
-                    seen_urls.add(href)
-                    
-                    # Extract category name from path
-                    # e.g., /ar-kw/women/makeup/face/l/ -> face
-                    path_parts = href.strip('/').split('/')
-                    if len(path_parts) >= 2:
-                        # The part before /l/ is the category name
-                        category_name = path_parts[-2]
+                # Additional check: must end with /l/ or /l/?...
+                if href.endswith('/l/') or '/l/' in href and (href.split('/l/')[1] == '' or href.split('/l/')[1].startswith('?')):
+                    if href not in seen_urls:
+                        seen_urls.add(href)
                         
-                        # Get display text from link
-                        text = link.get_text(strip=True)
-                        
-                        if category_name and len(category_name) > 1:
-                            full_url = urljoin(self.base_url, href)
-                            categories.append({
-                                'name': text if text and len(text) > 0 else category_name,
-                                'url': full_url,
-                                'path': href
-                            })
+                        # Extract category name from path
+                        # e.g., /ar-kw/women/makeup/face/l/ -> face
+                        path_parts = href.strip('/').split('/')
+                        if len(path_parts) >= 2:
+                            # The part before /l/ is the category name
+                            category_name = path_parts[-2]
+                            
+                            # Get display text from link
+                            text = link.get_text(strip=True)
+                            
+                            if category_name and len(category_name) > 1:
+                                full_url = urljoin(self.base_url, href)
+                                categories.append({
+                                    'name': text if text and len(text) > 0 else category_name,
+                                    'url': full_url,
+                                    'path': href
+                                })
         
         logger.info(f"Found {len(categories)} main categories")
         if categories:
