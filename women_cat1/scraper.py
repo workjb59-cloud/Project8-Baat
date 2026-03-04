@@ -83,7 +83,7 @@ class BoutiqaatScraper:
                     return None
 
     def _make_request_with_js(self, url: str) -> Optional[BeautifulSoup]:
-        """Fetch page with JavaScript rendering using Playwright and handle infinite scroll"""
+        """Fetch page with JS rendering, handling targeted infinite scroll."""
         if not self.playwright_available:
             logger.warning("Playwright not available, falling back to requests")
             return self._make_request(url)
@@ -91,52 +91,60 @@ class BoutiqaatScraper:
         try:
             from playwright.sync_api import sync_playwright
             
-            logger.info(f"Fetching with Playwright (JS rendering): {url}")
+            logger.info(f"Fetching with Playwright: {url}")
             
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 
-                page.goto(url, wait_until='load', timeout=60000)
+                page.goto(url, wait_until='load', timeout=90000)
                 
-                # Handle infinite scroll
-                logger.info("Scrolling to load all products (infinite scroll)...")
-                last_height = page.evaluate("document.body.scrollHeight")
-                scroll_attempts = 0
-                MAX_SCROLL_ATTEMPTS = 20 # Avoid infinite loops
+                # --- Targeted Infinite Scroll Logic ---
+                scroll_selector = "div.infinite-scroll-component__outerdiv"
+                logger.info(f"Scrolling element '{scroll_selector}' to load all products...")
 
-                while scroll_attempts < MAX_SCROLL_ATTEMPTS:
-                    # Scroll to the bottom
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    
-                    # Wait for new content to load
-                    try:
-                        # Wait for network to be idle, indicating loading is complete
-                        page.wait_for_load_state('networkidle', timeout=5000)
-                    except Exception:
-                        # If network idle times out, just wait a fixed time
-                        logger.debug("Network idle timeout, waiting for 2 seconds.")
-                        time.sleep(2)
+                # Check if the scrollable element exists
+                scroll_container = page.query_selector(scroll_selector)
+                
+                if scroll_container:
+                    last_height = page.evaluate(f"document.querySelector('{scroll_selector}').scrollHeight")
+                    scroll_attempts = 0
+                    MAX_SCROLL_ATTEMPTS = 40
 
-                    new_height = page.evaluate("document.body.scrollHeight")
-                    
-                    if new_height == last_height:
-                        logger.info("Infinite scroll finished.")
-                        break
-                    
-                    last_height = new_height
-                    scroll_attempts += 1
-                    logger.debug(f"Scrolled down, new height: {new_height}")
+                    while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+                        # Scroll the specific container
+                        page.evaluate(f"document.querySelector('{scroll_selector}').scrollTo(0, document.querySelector('{scroll_selector}').scrollHeight)")
+                        
+                        # Wait for network to settle
+                        try:
+                            page.wait_for_load_state('networkidle', timeout=7000)
+                        except Exception:
+                            logger.debug("Network idle timeout, waiting for 3 seconds.")
+                            time.sleep(3)
 
-                if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
-                    logger.warning("Max scroll attempts reached, content may be incomplete.")
+                        new_height = page.evaluate(f"document.querySelector('{scroll_selector}').scrollHeight")
+                        
+                        if new_height == last_height:
+                            logger.info("Infinite scroll finished.")
+                            break
+                        
+                        last_height = new_height
+                        scroll_attempts += 1
+                        logger.debug(f"Scrolled down, new height: {new_height}")
+
+                    if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
+                        logger.warning("Max scroll attempts reached.")
+                else:
+                    logger.warning(f"Scroll container '{scroll_selector}' not found. Falling back to window scroll.")
+                    # Fallback to scrolling the main window if the specific div isn't there
+                    page.evaluate('window.scrollBy(0, document.body.scrollHeight)')
+                    time.sleep(3)
 
                 html = page.content()
                 browser.close()
                 return BeautifulSoup(html, 'html.parser')
         except Exception as e:
-            logger.error(f"Playwright failed for {url}: {str(e)}")
-            # Fallback to regular requests
+            logger.error(f"Playwright failed for {url}: {str(e)}", exc_info=True)
             return self._make_request(url)
 
     def get_categories(self) -> List[Dict[str, str]]:
