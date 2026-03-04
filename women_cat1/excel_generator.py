@@ -56,7 +56,9 @@ class ExcelGenerator:
         self._create_summary_sheet(summary_ws, subcategories_data)
         
         # Save file
-        filename = f"{TEMP_DIR}/{category_name}_{EXCEL_DATE_STR}.xlsx"
+        excel_dir = os.path.join(TEMP_DIR, "excel_files")
+        Path(excel_dir).mkdir(parents=True, exist_ok=True)
+        filename = f"{excel_dir}/{category_name}_{EXCEL_DATE_STR}.xlsx"
         wb.save(filename)
         logger.info(f"Excel file created: {filename}")
         

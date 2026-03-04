@@ -103,7 +103,11 @@ class BoutiqaatDataPipeline:
                     
                     # Download and upload image
                     if product.get('image_url'):
-                        s3_image_path = self._upload_product_image(product)
+                        s3_image_path = self._upload_product_image(
+                            product,
+                            category_name,
+                            subcategory_name
+                        )
                         product['s3_image_path'] = s3_image_path
                     else:
                         product['s3_image_path'] = 'No image available'
@@ -122,7 +126,7 @@ class BoutiqaatDataPipeline:
             # Upload Excel to S3
             self._upload_excel_file(excel_file, category_name)
 
-    def _upload_product_image(self, product: Dict) -> str:
+    def _upload_product_image(self, product: Dict, category_name: str, subcategory_name: str) -> str:
         """Download and upload product image to S3"""
         try:
             image_url = product.get('image_url')
@@ -131,16 +135,27 @@ class BoutiqaatDataPipeline:
             if not image_url:
                 return 'No image URL'
             
+            # Sanitize names for S3 path
+            safe_category = "".join(c for c in category_name if c.isalnum() or c in (' ', '_')).rstrip()
+            safe_subcategory = "".join(c for c in subcategory_name if c.isalnum() or c in (' ', '_')).rstrip()
+            
+            # S3 path: year=YYYY/month=MM/day=DD/women-makeup/images/category/subcategory/
+            s3_path = (
+                f"year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/images/"
+                f"{safe_category}/{safe_subcategory}"
+            )
+            
             # Generate filename
             filename = f"{sku}_image.jpg"
             
             # Upload image
-            s3_path = self.uploader.upload_image_from_url(
+            s3_key = self.uploader.upload_image_from_url(
                 image_url,
-                filename
+                filename,
+                s3_path
             )
             
-            return s3_path if s3_path else 'Upload failed'
+            return s3_key if s3_key else 'Upload failed'
         
         except Exception as e:
             logger.warning(f"Error uploading image for {product.get('name')}: {str(e)}")
@@ -152,14 +167,19 @@ class BoutiqaatDataPipeline:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{category_name}_{timestamp}.xlsx"
             
-            s3_path = self.uploader.upload_local_file(
+            # S3 path: year=YYYY/month=MM/day=DD/women-makeup/excel-files/
+            s3_path = (
+                f"year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/excel-files"
+            )
+            
+            s3_key = self.uploader.upload_local_file(
                 local_path,
-                S3_EXCEL_PATH,
+                s3_path,
                 filename
             )
             
-            if s3_path:
-                logger.info(f"Excel file uploaded: {s3_path}")
+            if s3_key:
+                logger.info(f"Excel file uploaded: {s3_key}")
                 return True
             else:
                 logger.error(f"Failed to upload Excel file: {local_path}")
