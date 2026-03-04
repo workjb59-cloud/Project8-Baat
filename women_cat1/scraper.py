@@ -99,48 +99,54 @@ class BoutiqaatScraper:
                 
                 page.goto(url, wait_until='load', timeout=90000)
                 
-                # --- Targeted Infinite Scroll Logic ---
-                logger.info("Handling infinite scroll by counting product containers...")
-                
-                scroll_attempts = 0
-                MAX_SCROLL_ATTEMPTS = 50
-                no_change_count = 0
+                # Only apply infinite scroll logic for product listing pages (URLs with /l/)
+                if '/l/' in url:
+                    # --- Targeted Infinite Scroll Logic ---
+                    logger.info("Handling infinite scroll by counting product containers...")
+                    
+                    scroll_attempts = 0
+                    MAX_SCROLL_ATTEMPTS = 50
+                    no_change_count = 0
 
-                while scroll_attempts < MAX_SCROLL_ATTEMPTS:
-                    # Count current products
-                    current_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
-                    
-                    # Scroll the window to the bottom
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    
-                    # Wait for content to load - give it time for AJAX to complete
-                    time.sleep(4)
-                    
-                    # Try to wait for network idle but don't fail if it times out
-                    try:
-                        page.wait_for_load_state('networkidle', timeout=5000)
-                    except Exception:
-                        pass
-                    
-                    # Count products again
-                    new_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
-                    
-                    logger.debug(f"Products: {current_count} -> {new_count}")
-                    
-                    if new_count == current_count:
-                        # No new products loaded
-                        no_change_count += 1
-                        if no_change_count >= 3:
-                            logger.info(f"Infinite scroll finished. Total products: {new_count}")
-                            break
-                    else:
-                        # New products loaded, reset counter
-                        no_change_count = 0
-                    
-                    scroll_attempts += 1
+                    while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+                        # Count current products
+                        current_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
+                        
+                        # Scroll the window to the bottom
+                        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        
+                        # Wait for content to load - give it time for AJAX to complete
+                        time.sleep(4)
+                        
+                        # Try to wait for network idle but don't fail if it times out
+                        try:
+                            page.wait_for_load_state('networkidle', timeout=5000)
+                        except Exception:
+                            pass
+                        
+                        # Count products again
+                        new_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
+                        
+                        logger.debug(f"Products: {current_count} -> {new_count}")
+                        
+                        if new_count == current_count:
+                            # No new products loaded
+                            no_change_count += 1
+                            if no_change_count >= 3:
+                                logger.info(f"Infinite scroll finished. Total products: {new_count}")
+                                break
+                        else:
+                            # New products loaded, reset counter
+                            no_change_count = 0
+                        
+                        scroll_attempts += 1
 
-                if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
-                    logger.warning("Max scroll attempts reached.")
+                    if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
+                        logger.warning("Max scroll attempts reached.")
+                else:
+                    # For non-listing pages (like category pages), just wait for initial load
+                    logger.debug("Not a product listing page, skipping infinite scroll.")
+                    time.sleep(2)
 
                 html = page.content()
                 browser.close()
