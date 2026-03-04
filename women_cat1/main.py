@@ -137,12 +137,11 @@ class BoutiqaatDataPipeline:
             
             # Sanitize names for S3 path
             safe_category = "".join(c for c in category_name if c.isalnum() or c in (' ', '_')).rstrip()
-            safe_subcategory = "".join(c for c in subcategory_name if c.isalnum() or c in (' ', '_')).rstrip()
             
-            # S3 path: year=YYYY/month=MM/day=DD/women-makeup/images/category/subcategory/
+            # S3 path: boutiqaat-data/year=YYYY/month=MM/day=DD/women-makeup/images/category/
             s3_path = (
-                f"year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/images/"
-                f"{safe_category}/{safe_subcategory}"
+                f"boutiqaat-data/year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/images/"
+                f"{safe_category}"
             )
             
             # Generate filename
@@ -167,9 +166,9 @@ class BoutiqaatDataPipeline:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{category_name}_{timestamp}.xlsx"
             
-            # S3 path: year=YYYY/month=MM/day=DD/women-makeup/excel-files/
+            # S3 path: boutiqaat-data/year=YYYY/month=MM/day=DD/women-makeup/excel-files/
             s3_path = (
-                f"year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/excel-files"
+                f"boutiqaat-data/year={datetime.now().strftime('%Y')}/month={datetime.now().strftime('%m')}/day={datetime.now().strftime('%d')}/women-makeup/excel-files"
             )
             
             s3_key = self.uploader.upload_local_file(
