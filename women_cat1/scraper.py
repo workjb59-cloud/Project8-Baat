@@ -100,45 +100,47 @@ class BoutiqaatScraper:
                 page.goto(url, wait_until='load', timeout=90000)
                 
                 # --- Targeted Infinite Scroll Logic ---
-                scroll_selector = "div.infinite-scroll-component__outerdiv"
-                logger.info(f"Scrolling element '{scroll_selector}' to load all products...")
-
-                # Check if the scrollable element exists
-                scroll_container = page.query_selector(scroll_selector)
+                logger.info("Handling infinite scroll by counting product containers...")
                 
-                if scroll_container:
-                    last_height = page.evaluate(f"document.querySelector('{scroll_selector}').scrollHeight")
-                    scroll_attempts = 0
-                    MAX_SCROLL_ATTEMPTS = 40
+                scroll_attempts = 0
+                MAX_SCROLL_ATTEMPTS = 50
+                no_change_count = 0
 
-                    while scroll_attempts < MAX_SCROLL_ATTEMPTS:
-                        # Scroll the specific container
-                        page.evaluate(f"document.querySelector('{scroll_selector}').scrollTo(0, document.querySelector('{scroll_selector}').scrollHeight)")
-                        
-                        # Wait for network to settle
-                        try:
-                            page.wait_for_load_state('networkidle', timeout=7000)
-                        except Exception:
-                            logger.debug("Network idle timeout, waiting for 3 seconds.")
-                            time.sleep(3)
-
-                        new_height = page.evaluate(f"document.querySelector('{scroll_selector}').scrollHeight")
-                        
-                        if new_height == last_height:
-                            logger.info("Infinite scroll finished.")
+                while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+                    # Count current products
+                    current_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
+                    
+                    # Scroll the window to the bottom
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    
+                    # Wait for content to load - give it time for AJAX to complete
+                    time.sleep(4)
+                    
+                    # Try to wait for network idle but don't fail if it times out
+                    try:
+                        page.wait_for_load_state('networkidle', timeout=5000)
+                    except Exception:
+                        pass
+                    
+                    # Count products again
+                    new_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
+                    
+                    logger.debug(f"Products: {current_count} -> {new_count}")
+                    
+                    if new_count == current_count:
+                        # No new products loaded
+                        no_change_count += 1
+                        if no_change_count >= 3:
+                            logger.info(f"Infinite scroll finished. Total products: {new_count}")
                             break
-                        
-                        last_height = new_height
-                        scroll_attempts += 1
-                        logger.debug(f"Scrolled down, new height: {new_height}")
+                    else:
+                        # New products loaded, reset counter
+                        no_change_count = 0
+                    
+                    scroll_attempts += 1
 
-                    if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
-                        logger.warning("Max scroll attempts reached.")
-                else:
-                    logger.warning(f"Scroll container '{scroll_selector}' not found. Falling back to window scroll.")
-                    # Fallback to scrolling the main window if the specific div isn't there
-                    page.evaluate('window.scrollBy(0, document.body.scrollHeight)')
-                    time.sleep(3)
+                if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
+                    logger.warning("Max scroll attempts reached.")
 
                 html = page.content()
                 browser.close()
