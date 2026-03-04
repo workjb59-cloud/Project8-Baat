@@ -316,74 +316,43 @@ class BoutiqaatScraper:
         return products
     
     def _extract_all_products(self, soup) -> List[Dict]:
-        """Extract all products from a page without subcategory grouping"""
+        """Extract all products from a page by finding product containers."""
         products = []
-        
-        # Only look for ACTUAL product links (ending with /p/ for product page)
-        # Product URLs: /ar-kw/women/{product-name}/p/ (no /makeup/ in product URL)
-        product_links = soup.find_all('a', href=lambda x: x and '/p/' in str(x) and '/women/' in str(x))
-        
-        logger.info(f"Found {len(product_links)} potential product links")
-        
-        if not product_links:
-            logger.warning("No product links found with /p/ pattern")
-            return products
-        
-        for link in product_links:
+        seen_urls = set()
+
+        # Each product is in a 'single-product-wrap' div
+        product_containers = soup.find_all('div', class_='single-product-wrap')
+        logger.info(f"Found {len(product_containers)} product containers.")
+
+        if not product_containers:
+            logger.warning("No 'single-product-wrap' containers found.")
+            return []
+
+        for container in product_containers:
             try:
-                href = link.get('href', '')
-                if not href or '/p/' not in href:
+                # Find the main product link within the container
+                link_elem = container.find('a', href=lambda x: x and '/p/' in str(x))
+                if not link_elem or not link_elem.get('href'):
                     continue
-                
-                # Skip links that are not product links (e.g., /women/women/... or category pages)
-                if '/women/makeup/' in href and '/p/' not in href:
+
+                href = link_elem['href']
+                full_url = self._clean_url(urljoin(self.base_url, href))
+
+                # Avoid processing duplicate products
+                if full_url in seen_urls:
                     continue
-                
-                # Get product name from link text
-                name = link.get_text(strip=True)
-                if not name or len(name) < 2:
-                    continue
-                
-                # Get image from the link or its parent
-                img_elem = link.find('img')
-                if not img_elem:
-                    parent = link.find_parent(['div', 'article', 'li'])
-                    if parent:
-                        img_elem = parent.find('img')
-                
-                image_url = None
-                if img_elem:
-                    image_url = img_elem.get('src') or img_elem.get('data-src')
-                    # Skip placeholder images
-                    if image_url and ('loader' in image_url.lower() or 'placeholder' in image_url.lower()):
-                        image_url = None
-                    # Extract actual URL from Next.js optimization URLs
-                    if image_url:
-                        image_url = self._extract_image_url(image_url)
-                
-                # Get price if available
-                price = 'N/A'
-                parent = link.find_parent(['div', 'article', 'li']) or link
-                price_elem = parent.find(class_=lambda x: x and 'price' in str(x).lower())
-                if price_elem:
-                    price = price_elem.get_text(strip=True)
-                
-                full_url = urljoin(self.base_url, href)
-                full_url = self._clean_url(full_url)  # Clean up double slashes
-                
-                products.append({
-                    'name': name,
-                    'url': full_url,
-                    'image_url': image_url,
-                    'price': price,
-                    'brand': 'Unknown'
-                })
-                
+                seen_urls.add(full_url)
+
+                # Extract details from the container
+                details = self._extract_product_details(container)
+                if details:
+                    products.append(details)
+
             except Exception as e:
-                logger.debug(f"Error processing product link: {str(e)}")
+                logger.debug(f"Error processing product container: {str(e)}")
                 continue
-        
-        logger.info(f"Extracted {len(products)} valid products")
+
+        logger.info(f"Extracted {len(products)} valid products from containers.")
         return products
     
     def _find_products_in_container(self, container) -> List[Dict]:
