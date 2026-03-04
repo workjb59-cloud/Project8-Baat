@@ -408,56 +408,47 @@ class BoutiqaatScraper:
         return products
 
     def _extract_product_details(self, product_elem) -> Optional[Dict]:
-        """Extract details from a single product element"""
+        """Extract details from a single product element (container)"""
         try:
-            # Product name - try multiple selectors
-            name_elem = product_elem.find('span', class_='product-name-plp-h3')
-            if not name_elem:
-                name_elem = product_elem.find('h2') or product_elem.find('h3')
-            if not name_elem:
-                name_elem = product_elem.find(class_=lambda x: x and 'name' in x.lower())
-            name = name_elem.get_text(strip=True) if name_elem else 'Unknown'
-            
-            # Brand - try multiple selectors
-            brand_elem = product_elem.find('span', class_='brand-name')
-            if not brand_elem:
-                brand_elem = product_elem.find(class_=lambda x: x and 'brand' in x.lower())
-            brand = brand_elem.get_text(strip=True) if brand_elem else 'Unknown'
-            
-            # Price - try multiple selectors
-            price_elem = product_elem.find('span', class_='new-price')
-            if not price_elem:
-                price_elem = product_elem.find(class_=lambda x: x and 'price' in x.lower())
-            price = price_elem.get_text(strip=True) if price_elem else 'N/A'
-            
-            # Product URL - try multiple selectors
-            link_elem = product_elem.find('a', {'class': 'product-image'})
-            if not link_elem:
-                link_elem = product_elem.find('a', href=True)
-            product_url = urljoin(self.base_url, link_elem['href']) if link_elem and link_elem.get('href') else None
-            if product_url:
-                product_url = self._clean_url(product_url)
-            
-            # Image URL - try multiple selectors
-            img_elem = product_elem.find('img', class_='img-fluid')
-            if not img_elem:
-                img_elem = product_elem.find('img')
-            image_url = img_elem.get('src') or img_elem.get('data-src') if img_elem else None
-            if image_url:
-                image_url = self._extract_image_url(image_url)
-            
-            # Color options
-            colors = 'N/A'
-            all_spans = product_elem.find_all('span')
-            for span in all_spans:
-                text = span.get_text(strip=True)
-                if 'ألوان' in text or 'لون' in text or 'colors' in text.lower():
-                    colors = text
-                    break
-            
-            if not product_url:
+            # The main link contains the URL and often the name
+            link_elem = product_elem.find('a', href=lambda x: x and '/p/' in str(x))
+            if not link_elem or not link_elem.get('href'):
+                logger.debug("No product link with '/p/' found in container.")
                 return None
-            
+
+            product_url = urljoin(self.base_url, link_elem['href'])
+            product_url = self._clean_url(product_url)
+
+            # Product name
+            name_elem = product_elem.find('span', class_='product-name-plp-h3')
+            name = name_elem.get_text(strip=True) if name_elem else 'Unknown'
+            if name == 'Unknown':
+                # Fallback to find name from link title or text
+                name = link_elem.get('title', '') or link_elem.get_text(strip=True)
+
+            # Brand
+            brand_elem = product_elem.find('span', class_='brand-name')
+            brand = brand_elem.get_text(strip=True) if brand_elem else 'Unknown'
+
+            # Price
+            price_elem = product_elem.find('span', class_='new-price')
+            price = price_elem.get_text(strip=True) if price_elem else 'N/A'
+
+            # Image URL
+            img_elem = product_elem.find('img', class_='img-fluid')
+            image_url = None
+            if img_elem:
+                # Playwright might load the final src, or it might be in data-src
+                image_url = img_elem.get('src') or img_elem.get('data-src')
+                if image_url:
+                    image_url = self._extract_image_url(image_url)
+
+            # Color options (optional)
+            colors = 'N/A'
+            color_span = product_elem.find('span', text=lambda t: t and ('ألوان' in t or 'colors' in t.lower()))
+            if color_span:
+                colors = color_span.get_text(strip=True)
+
             return {
                 'name': name,
                 'brand': brand,
@@ -467,7 +458,7 @@ class BoutiqaatScraper:
                 'colors': colors
             }
         except Exception as e:
-            logger.warning(f"Error extracting product: {str(e)}")
+            logger.warning(f"Error extracting product details from container: {str(e)}")
             return None
 
     def get_product_full_details(self, product_url: str) -> Optional[Dict]:
