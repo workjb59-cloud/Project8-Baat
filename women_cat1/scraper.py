@@ -83,7 +83,7 @@ class BoutiqaatScraper:
                     return None
 
     def _make_request_with_js(self, url: str) -> Optional[BeautifulSoup]:
-        """Fetch page with JavaScript rendering using Playwright"""
+        """Fetch page with JavaScript rendering using Playwright and handle infinite scroll"""
         if not self.playwright_available:
             logger.warning("Playwright not available, falling back to requests")
             return self._make_request(url)
@@ -97,28 +97,45 @@ class BoutiqaatScraper:
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
                 
-                # Navigate to the page
-                page.goto(url, wait_until='load', timeout=30000)
+                page.goto(url, wait_until='load', timeout=60000)
                 
-                # Wait for network idle
-                try:
-                    page.wait_for_load_state('networkidle', timeout=10000)
-                except:
-                    logger.warning(f"Network idle timeout for {url}, continuing anyway")
-                
-                # Scroll down to load lazy-loaded content
-                logger.debug("Scrolling page to load lazy-loaded content...")
-                page.evaluate('window.scrollBy(0, document.body.scrollHeight)')
-                
-                # Wait a bit for any additional content to load
-                import time
-                time.sleep(2)
-                
+                # Handle infinite scroll
+                logger.info("Scrolling to load all products (infinite scroll)...")
+                last_height = page.evaluate("document.body.scrollHeight")
+                scroll_attempts = 0
+                MAX_SCROLL_ATTEMPTS = 20 # Avoid infinite loops
+
+                while scroll_attempts < MAX_SCROLL_ATTEMPTS:
+                    # Scroll to the bottom
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                    
+                    # Wait for new content to load
+                    try:
+                        # Wait for network to be idle, indicating loading is complete
+                        page.wait_for_load_state('networkidle', timeout=5000)
+                    except Exception:
+                        # If network idle times out, just wait a fixed time
+                        logger.debug("Network idle timeout, waiting for 2 seconds.")
+                        time.sleep(2)
+
+                    new_height = page.evaluate("document.body.scrollHeight")
+                    
+                    if new_height == last_height:
+                        logger.info("Infinite scroll finished.")
+                        break
+                    
+                    last_height = new_height
+                    scroll_attempts += 1
+                    logger.debug(f"Scrolled down, new height: {new_height}")
+
+                if scroll_attempts >= MAX_SCROLL_ATTEMPTS:
+                    logger.warning("Max scroll attempts reached, content may be incomplete.")
+
                 html = page.content()
                 browser.close()
                 return BeautifulSoup(html, 'html.parser')
         except Exception as e:
-            logger.warning(f"Playwright failed for {url}: {str(e)}")
+            logger.error(f"Playwright failed for {url}: {str(e)}")
             # Fallback to regular requests
             return self._make_request(url)
 
@@ -235,42 +252,21 @@ class BoutiqaatScraper:
         return subcategories
 
     def get_products(self, category_url: str) -> List[Dict]:
-        """Scrape products from a category page, organized by subcategory"""
-        logger.info(f"Fetching products from {category_url}")
-        all_products = []
-        page = 1
+        """Scrape all products from a category page, handling infinite scroll."""
+        logger.info(f"Fetching all products from {category_url} with infinite scroll")
         
-        while True:
-            # Build pagination URL
-            page_url = f"{category_url}?p={page}" if '?' not in category_url else f"{category_url}&p={page}"
-            logger.info(f"Fetching page {page}: {page_url}")
-            
-            # Use Scrapling for JS-heavy product pages
-            soup = self._make_request_with_js(page_url)
-            
-            if not soup:
-                break
-            
-            # Extract products - will try to identify subcategories
-            page_products = self._extract_products_with_subcategories(soup)
-            
-            if page_products:
-                logger.info(f"Found {len(page_products)} products on page {page}")
-                all_products.extend(page_products)
-            else:
-                logger.warning(f"No products found on page {page}")
-                break
-            
-            # Check if there's a next page
-            next_button = soup.find('a', rel='next')
-            if not next_button:
-                logger.info("No next page found")
-                break
-            
-            page += 1
-            time.sleep(1)  # Be respectful to the server
+        # Use Playwright to handle infinite scroll and get the full page content
+        soup = self._make_request_with_js(category_url)
         
-        logger.info(f"Found {len(all_products)} total products")
+        if not soup:
+            logger.error(f"Failed to load page content for {category_url}")
+            return []
+
+        # After scrolling, all products should be in the DOM.
+        # We can now extract them all at once.
+        all_products = self._extract_all_products(soup)
+        
+        logger.info(f"Found {len(all_products)} total products after scrolling.")
         return all_products
     
     def _extract_products_with_subcategories(self, soup) -> List[Dict]:
