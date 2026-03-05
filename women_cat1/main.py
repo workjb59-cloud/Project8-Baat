@@ -38,7 +38,7 @@ class BoutiqaatDataPipeline:
     def run(self):
         """Execute the complete data pipeline with parallel processing"""
         logger.info("=" * 80)
-        logger.info("Starting Boutiqaat Data Pipeline (Parallel Mode - 6 workers)")
+        logger.info("Starting Boutiqaat Data Pipeline (Parallel Mode - 4 workers)")
         logger.info("=" * 80)
         
         try:
@@ -55,13 +55,13 @@ class BoutiqaatDataPipeline:
                 logger.error("No categories found")
                 return False
             
-            logger.info(f"Processing {len(categories)} categories with 6 parallel workers")
+            logger.info(f"Processing {len(categories)} categories with 4 parallel workers")
             
-            # Process categories in parallel (6 at a time)
+            # Process categories in parallel (4 at a time)
             successful = 0
             failed = 0
             
-            with ThreadPoolExecutor(max_workers=6) as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 # Submit all category processing tasks
                 future_to_category = {
                     executor.submit(self._process_category_safe, category): category 
