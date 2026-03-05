@@ -115,12 +115,12 @@ class BoutiqaatScraper:
                         # Scroll the window to the bottom
                         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                         
-                        # Wait for content to load - reduced for faster scraping
-                        time.sleep(2)
+                        # Wait for content to load - give it time for AJAX to complete
+                        time.sleep(4)
                         
                         # Try to wait for network idle but don't fail if it times out
                         try:
-                            page.wait_for_load_state('networkidle', timeout=3000)
+                            page.wait_for_load_state('networkidle', timeout=5000)
                         except Exception:
                             pass
                         
