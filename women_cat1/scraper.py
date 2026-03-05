@@ -115,14 +115,15 @@ class BoutiqaatScraper:
                         # Scroll the window to the bottom
                         page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                         
-                        # Wait for content to load - give it time for AJAX to complete
-                        time.sleep(4)
+                        # Wait longer for content to load (increased from 4 to 6 seconds for parallel execution)
+                        time.sleep(6)
                         
                         # Try to wait for network idle but don't fail if it times out
                         try:
-                            page.wait_for_load_state('networkidle', timeout=5000)
+                            page.wait_for_load_state('networkidle', timeout=8000)
                         except Exception:
-                            pass
+                            # Give it extra time if network is still busy
+                            time.sleep(3)
                         
                         # Count products again
                         new_count = page.evaluate("document.querySelectorAll('div.single-product-wrap').length")
@@ -132,7 +133,8 @@ class BoutiqaatScraper:
                         if new_count == current_count:
                             # No new products loaded
                             no_change_count += 1
-                            if no_change_count >= 3:
+                            # Increased from 3 to 5 to be more patient
+                            if no_change_count >= 5:
                                 logger.info(f"Infinite scroll finished. Total products: {new_count}")
                                 break
                         else:
