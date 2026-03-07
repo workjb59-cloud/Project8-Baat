@@ -1,9 +1,9 @@
-name: Boutiqaat Scraper - Group 4
+name: Boutiqaat Scraper - Cat3 Sub1 (Niche Perfumes)
 
 on:
   schedule:
-    # Run every day at 4 AM UTC
-    - cron: '0 4 * * *'
+    # Run every day at 6 AM UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -36,13 +36,13 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
     
-    - name: Run scraper - Group 4
+    - name: Run scraper - Niche Perfumes
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
       run: |
-        python -m women_cat1_sub4.main
+        python -m women_cat3_sub1.main
     
     - name: Job summary
       if: always()
@@ -57,8 +57,8 @@ jobs:
     steps:
     - name: Job Summary
       run: |
-        echo "## Boutiqaat Scraping - Group 4" >> $GITHUB_STEP_SUMMARY
+        echo "## Boutiqaat Scraping - Niche Perfumes" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ needs.scrape.result }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Date**: $(date)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Categories**: 8 subcategories (lash-brow-regrowth to brush-sets)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Uploaded to**: S3 boutiqaat-data bucket" >> $GITHUB_STEP_SUMMARY
+        echo "- **Categories**: 1 subcategory (niche-perfumes-1)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Uploaded to**: S3 boutiqaat-data/niche-perfumes bucket" >> $GITHUB_STEP_SUMMARY

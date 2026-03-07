@@ -2,8 +2,8 @@ name: Boutiqaat Scraper - Cat2 Sub2 (Skin Care Group 2)
 
 on:
   schedule:
-    # Run every day at 2 PM UTC
-    - cron: '0 14 * * *'
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:

@@ -2,8 +2,8 @@ name: Boutiqaat Scraper - Group 5
 
 on:
   schedule:
-    # Run every day at 10 AM UTC
-    - cron: '0 10 * * *'
+    # Run every day at 6 AM UTC
+    - cron: '0 6 * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
